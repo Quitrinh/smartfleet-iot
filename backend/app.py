@@ -564,6 +564,98 @@ def auth_vehicle():
         }), 500
 
 # ============================================================
+# GET ALL VEHICLES
+# ============================================================
+
+@app.get("/api/vehicles")
+def get_all_vehicles():
+
+    try:
+
+        with get_db_connection() as conn:
+
+            with conn.cursor() as cur:
+
+                cur.execute(
+                    """
+                    SELECT
+                        v.id,
+                        v.vehicle_code,
+                        v.device_id,
+                        v.status,
+
+                        t.id AS trip_id,
+                        t.trip_code,
+                        t.status AS trip_status,
+
+                        COUNT(g.id) AS gps_count,
+                        MAX(g.recorded_at) AS last_gps_at
+
+                    FROM vehicles v
+
+                    LEFT JOIN trips t
+                        ON t.vehicle_id = v.id
+                        AND t.status = 'IN_PROGRESS'
+
+                    LEFT JOIN gps_logs g
+                        ON g.vehicle_id = v.id
+
+                    GROUP BY
+                        v.id,
+                        v.vehicle_code,
+                        v.device_id,
+                        v.status,
+                        t.id,
+                        t.trip_code,
+                        t.status
+
+                    ORDER BY v.id ASC
+                    """
+                )
+
+                rows = cur.fetchall()
+
+        vehicles = []
+
+        for row in rows:
+
+            vehicles.append({
+                "id": row["id"],
+                "vehicle_code": row["vehicle_code"],
+                "device_id": row["device_id"],
+                "status": row["status"],
+
+                "trip_id": row["trip_id"],
+                "trip_code": row["trip_code"],
+                "trip_status": row["trip_status"],
+
+                "gps_count": row["gps_count"],
+
+                "last_gps_at":
+                    row["last_gps_at"].isoformat()
+                    if row["last_gps_at"]
+                    else None
+            })
+
+        return jsonify({
+            "status": "ok",
+            "count": len(vehicles),
+            "vehicles": vehicles
+        }), 200
+
+    except Exception as e:
+
+        print(
+            "[GET ALL VEHICLES ERROR]",
+            repr(e)
+        )
+
+        return jsonify({
+            "status": "error",
+            "reason": "SERVER_ERROR",
+            "message": "Could not read vehicles"
+        }), 500
+# ============================================================
 # START TRIP
 #
 # ESP32 / Postman sends:
