@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Phương tiện | SmartFleet</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/vehicles.css') }}"
+    >
+</head>
+
+<body>
+
+    <!-- =====================================================
+         SIDEBAR
+    ====================================================== -->
+
+    <aside class="sidebar">
+
+        <div class="brand">
+            <div class="brand-logo">SF</div>
+
+            <div>
+                <strong>SmartFleet</strong>
+                <span>Fleet Management</span>
+            </div>
+        </div>
+
+
+        <nav class="navigation">
+
+            <a href="/dashboard">
+                Dashboard
+            </a>
+
+            <a
+                href="/vehicles"
+                class="active"
+            >
+                Phương tiện
+            </a>
+
+            <a href="/drivers">
+                Tài xế
+            </a>
+
+            <a href="/trips">
+                Chuyến đi
+            </a>
+
+            <a href="/dashboard">
+                Theo dõi GPS
+            </a>
+
+            <a href="/alerts">
+                Cảnh báo
+            </a>
+
+        </nav>
+
+
+        <div class="sidebar-bottom">
+
+            <div class="user-info">
+
+                <div class="avatar">
+                    A
+                </div>
+
+                <div>
+                    <strong>Administrator</strong>
+                    <span>Quản trị viên</span>
+                </div>
+
+            </div>
+
+            <a
+                class="logout"
+                href="/logout"
+            >
+                Đăng xuất
+            </a>
+
+        </div>
+
+    </aside>
+
+
+    <!-- =====================================================
+         MAIN
+    ====================================================== -->
+
+    <main class="main-content">
+
+        <!-- HEADER -->
+
+        <header class="page-header">
+
+            <div>
+                <h1>Phương tiện</h1>
+
+                <p>
+                    Quản lý và theo dõi phương tiện SmartFleet
+                </p>
+            </div>
+
+
+            <button
+                id="refreshButton"
+                type="button"
+            >
+                Cập nhật
+            </button>
+
+        </header>
+
+
+        <!-- =================================================
+             SUMMARY
+        ================================================== -->
+
+        <section class="summary-grid">
+
+            <div class="summary-card">
+
+                <span>
+                    Tổng phương tiện
+                </span>
+
+                <strong id="totalVehicles">
+                    --
+                </strong>
+
+            </div>
+
+
+            <div class="summary-card">
+
+                <span>
+                    Đang hoạt động
+                </span>
+
+                <strong id="activeVehicles">
+                    --
+                </strong>
+
+            </div>
+
+
+            <div class="summary-card">
+
+                <span>
+                    Đang trong chuyến
+                </span>
+
+                <strong id="inTripVehicles">
+                    --
+                </strong>
+
+            </div>
+
+
+            <div class="summary-card">
+
+                <span>
+                    Không hoạt động
+                </span>
+
+                <strong id="inactiveVehicles">
+                    --
+                </strong>
+
+            </div>
+
+        </section>
+
+
+        <!-- =================================================
+             VEHICLE TABLE
+        ================================================== -->
+
+        <section class="table-panel">
+
+            <div class="table-header">
+
+                <div>
+
+                    <h2>
+                        Danh sách phương tiện
+                    </h2>
+
+                    <p id="tableDescription">
+                        Đang tải dữ liệu...
+                    </p>
+
+                </div>
+
+
+                <div class="search-box">
+
+                    <input
+                        id="searchInput"
+                        type="search"
+                        placeholder="Tìm phương tiện..."
+                    >
+
+                </div>
+
+            </div>
+
+
+            <div class="table-container">
+
+                <table>
+
+                    <thead>
+
+                        <tr>
+
+                            <th>
+                                Mã xe
+                            </th>
+
+                            <th>
+                                Device ID
+                            </th>
+
+                            <th>
+                                Trạng thái
+                            </th>
+
+                            <th>
+                                Chuyến hiện tại
+                            </th>
+
+                            <th>
+                                GPS
+                            </th>
+
+                            <th>
+                                Thao tác
+                            </th>
+
+                        </tr>
+
+                    </thead>
+
+
+                    <tbody id="vehicleTableBody">
+
+                        <!--
+                        JavaScript sẽ đưa dữ liệu
+                        phương tiện vào đây.
+                        -->
+
+                        <tr id="loadingRow">
+
+                            <td colspan="6">
+
+                                <div class="loading">
+                                    Đang tải danh sách phương tiện...
+                                </div>
+
+                            </td>
+
+                        </tr>
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </section>
+
+
+        <!-- =================================================
+             EMPTY STATE
+        ================================================== -->
+
+        <div
+            id="emptyState"
+            class="empty-state"
+        >
+
+            <h3>
+                Không tìm thấy phương tiện
+            </h3>
+
+            <p>
+                Hiện chưa có phương tiện phù hợp với tìm kiếm.
+            </p>
+
+        </div>
+
+
+        <!-- =================================================
+             SERVER STATUS
+        ================================================== -->
+
+        <section class="server-status">
+
+            <div>
+
+                <span
+                    id="statusDot"
+                    class="status-dot"
+                ></span>
+
+                <span id="serverStatus">
+                    Đang kết nối SmartFleet Server...
+                </span>
+
+            </div>
+
+
+            <span id="lastUpdate">
+                --
+            </span>
+
+        </section>
+
+    </main>
+
+
+    <!-- =====================================================
+         JAVASCRIPT
+    ====================================================== -->
+
+    <script
+        src="{{ url_for('static', filename='js/vehicles.js') }}"
+    ></script>
+
+</body>
+
+</html>
