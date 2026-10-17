@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 
 import psycopg
 from psycopg.rows import dict_row
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from werkzeug.security import check_password_hash
 
 app = Flask(__name__)
@@ -43,6 +43,13 @@ def home():
         "status": "running"
     })
 
+# ============================================================
+# WEB DASHBOARD
+# ============================================================
+
+@app.get("/dashboard")
+def dashboard():
+    return render_template("dashboard.html")
 
 # ============================================================
 # HEALTH

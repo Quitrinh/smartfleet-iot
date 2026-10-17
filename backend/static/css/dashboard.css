@@ -1,0 +1,618 @@
+/* ============================================================
+   SMARTFLEET DASHBOARD
+   dashboard.css
+   ============================================================ */
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+:root {
+    --background: #f4f6f8;
+    --surface: #ffffff;
+    --surface-soft: #f8fafc;
+
+    --text-primary: #172033;
+    --text-secondary: #667085;
+
+    --border: #e4e7ec;
+
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+
+    --success: #16a34a;
+    --warning: #d97706;
+    --danger: #dc2626;
+
+    --shadow:
+        0 2px 8px rgba(16, 24, 40, 0.06);
+
+    --radius: 12px;
+}
+
+
+/* ============================================================
+   BODY
+   ============================================================ */
+
+body {
+    min-height: 100vh;
+
+    font-family:
+        Inter,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Roboto,
+        Arial,
+        sans-serif;
+
+    background: var(--background);
+    color: var(--text-primary);
+}
+
+
+/* ============================================================
+   TOP BAR
+   ============================================================ */
+
+.topbar {
+    min-height: 76px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 14px 32px;
+
+    background: var(--surface);
+
+    border-bottom: 1px solid var(--border);
+}
+
+.topbar h1 {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+}
+
+.topbar p {
+    margin-top: 3px;
+
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+
+/* ============================================================
+   CONNECTION STATUS
+   ============================================================ */
+
+.connection-status {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+
+    padding: 9px 13px;
+
+    border: 1px solid var(--border);
+    border-radius: 20px;
+
+    background: var(--surface-soft);
+
+    font-size: 13px;
+    font-weight: 600;
+}
+
+#connectionDot {
+    width: 9px;
+    height: 9px;
+
+    display: inline-block;
+
+    border-radius: 50%;
+
+    background: var(--warning);
+}
+
+
+/* ============================================================
+   DASHBOARD CONTAINER
+   ============================================================ */
+
+.dashboard-container {
+    width: min(1500px, calc(100% - 40px));
+
+    margin: 24px auto 40px;
+}
+
+
+/* ============================================================
+   SUMMARY CARDS
+   ============================================================ */
+
+.summary-grid {
+    display: grid;
+
+    grid-template-columns:
+        repeat(4, minmax(0, 1fr));
+
+    gap: 16px;
+
+    margin-bottom: 20px;
+}
+
+.summary-card {
+    min-height: 120px;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+
+    padding: 20px;
+
+    background: var(--surface);
+
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+
+    box-shadow: var(--shadow);
+}
+
+.card-label {
+    margin-bottom: 10px;
+
+    color: var(--text-secondary);
+
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.summary-card strong {
+    margin-bottom: 5px;
+
+    font-size: 22px;
+    font-weight: 700;
+}
+
+.summary-card small {
+    color: var(--text-secondary);
+
+    font-size: 12px;
+}
+
+
+/* ============================================================
+   TRACKING LAYOUT
+   ============================================================ */
+
+.tracking-grid {
+    display: grid;
+
+    grid-template-columns:
+        minmax(0, 3fr)
+        minmax(280px, 1fr);
+
+    gap: 20px;
+
+    align-items: stretch;
+}
+
+
+/* ============================================================
+   PANELS
+   ============================================================ */
+
+.map-panel,
+.vehicle-panel,
+.system-panel {
+    background: var(--surface);
+
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+
+    box-shadow: var(--shadow);
+}
+
+.map-panel {
+    overflow: hidden;
+}
+
+.vehicle-panel {
+    padding: 20px;
+}
+
+
+/* ============================================================
+   PANEL HEADER
+   ============================================================ */
+
+.panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 16px;
+}
+
+.map-panel > .panel-header {
+    padding: 18px 20px;
+}
+
+.panel-header h2 {
+    font-size: 17px;
+    font-weight: 700;
+}
+
+.panel-header p {
+    margin-top: 4px;
+
+    color: var(--text-secondary);
+
+    font-size: 12px;
+}
+
+
+/* ============================================================
+   REFRESH BUTTON
+   ============================================================ */
+
+#refreshButton {
+    padding: 9px 15px;
+
+    border: 0;
+    border-radius: 8px;
+
+    background: var(--primary);
+
+    color: #ffffff;
+
+    font-size: 13px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition:
+        background 0.15s ease,
+        transform 0.15s ease;
+}
+
+#refreshButton:hover {
+    background: var(--primary-dark);
+}
+
+#refreshButton:active {
+    transform: scale(0.97);
+}
+
+#refreshButton:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+
+/* ============================================================
+   LEAFLET MAP
+   ============================================================ */
+
+#map {
+    width: 100%;
+    height: 560px;
+
+    background: #e9edf2;
+
+    border-top: 1px solid var(--border);
+}
+
+
+/* Fix Leaflet font */
+
+.leaflet-container {
+    font-family:
+        Inter,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+}
+
+
+/* ============================================================
+   VEHICLE DATA
+   ============================================================ */
+
+.vehicle-data {
+    margin-top: 18px;
+
+    border-top: 1px solid var(--border);
+}
+
+.data-item {
+    min-height: 64px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 15px;
+
+    border-bottom: 1px solid var(--border);
+}
+
+.data-item span {
+    color: var(--text-secondary);
+
+    font-size: 13px;
+}
+
+.data-item strong {
+    color: var(--text-primary);
+
+    font-size: 15px;
+    font-weight: 700;
+
+    text-align: right;
+}
+
+.data-item strong span {
+    color: inherit;
+    font-size: inherit;
+}
+
+
+/* ============================================================
+   ROUTE INFORMATION
+   ============================================================ */
+
+.route-information {
+    margin-top: 24px;
+
+    padding: 16px;
+
+    background: var(--surface-soft);
+
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+
+.route-information h3 {
+    margin-bottom: 16px;
+
+    font-size: 14px;
+}
+
+.route-item {
+    display: flex;
+    flex-direction: column;
+
+    gap: 5px;
+}
+
+.route-item span {
+    color: var(--text-secondary);
+
+    font-size: 12px;
+}
+
+.route-item strong {
+    font-size: 14px;
+}
+
+.route-arrow {
+    padding: 9px 0;
+
+    color: var(--text-secondary);
+
+    font-size: 16px;
+}
+
+
+/* ============================================================
+   AUTO UPDATE
+   ============================================================ */
+
+.auto-update {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    margin-top: 20px;
+
+    padding-top: 16px;
+
+    border-top: 1px solid var(--border);
+
+    font-size: 12px;
+}
+
+.auto-update span {
+    color: var(--text-secondary);
+}
+
+.auto-update strong {
+    color: var(--success);
+}
+
+
+/* ============================================================
+   SYSTEM STATUS
+   ============================================================ */
+
+.system-panel {
+    display: grid;
+
+    grid-template-columns:
+        repeat(3, 1fr);
+
+    gap: 0;
+
+    margin-top: 20px;
+}
+
+.system-panel > div {
+    min-height: 85px;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+
+    padding: 18px 20px;
+
+    border-right: 1px solid var(--border);
+}
+
+.system-panel > div:last-child {
+    border-right: 0;
+}
+
+.system-label {
+    margin-bottom: 7px;
+
+    color: var(--text-secondary);
+
+    font-size: 12px;
+}
+
+.system-panel strong {
+    font-size: 14px;
+}
+
+
+/* ============================================================
+   STATUS HELPERS
+   These classes will be controlled by dashboard.js
+   ============================================================ */
+
+.status-online {
+    color: var(--success) !important;
+}
+
+.status-warning {
+    color: var(--warning) !important;
+}
+
+.status-error {
+    color: var(--danger) !important;
+}
+
+.dot-online {
+    background: var(--success) !important;
+}
+
+.dot-error {
+    background: var(--danger) !important;
+}
+
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+
+footer {
+    padding: 20px;
+
+    color: var(--text-secondary);
+
+    font-size: 12px;
+
+    text-align: center;
+}
+
+
+/* ============================================================
+   TABLET
+   ============================================================ */
+
+@media (max-width: 1100px) {
+
+    .summary-grid {
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+    }
+
+    .tracking-grid {
+        grid-template-columns: 1fr;
+    }
+
+    #map {
+        height: 500px;
+    }
+
+    .vehicle-panel {
+        min-height: auto;
+    }
+}
+
+
+/* ============================================================
+   MOBILE
+   ============================================================ */
+
+@media (max-width: 650px) {
+
+    .topbar {
+        padding: 14px 16px;
+
+        align-items: flex-start;
+        gap: 15px;
+
+        flex-direction: column;
+    }
+
+    .dashboard-container {
+        width: calc(100% - 24px);
+
+        margin-top: 14px;
+    }
+
+    .summary-grid {
+        grid-template-columns: 1fr;
+
+        gap: 10px;
+    }
+
+    .summary-card {
+        min-height: 100px;
+
+        padding: 16px;
+    }
+
+    .tracking-grid {
+        gap: 12px;
+    }
+
+    .map-panel > .panel-header {
+        align-items: flex-start;
+
+        flex-direction: column;
+    }
+
+    #refreshButton {
+        width: 100%;
+    }
+
+    #map {
+        height: 420px;
+    }
+
+    .vehicle-panel {
+        padding: 16px;
+    }
+
+    .system-panel {
+        grid-template-columns: 1fr;
+    }
+
+    .system-panel > div {
+        min-height: 70px;
+
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .system-panel > div:last-child {
+        border-bottom: 0;
+    }
+}

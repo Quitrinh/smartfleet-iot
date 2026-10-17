@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>SmartFleet Dashboard</title>
+
+    <!-- Leaflet CSS -->
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    >
+
+    <!-- Dashboard CSS - sẽ tạo ở bước sau -->
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/dashboard.css') }}"
+    >
+</head>
+
+<body>
+
+    <!-- ===================================================== -->
+    <!-- HEADER -->
+    <!-- ===================================================== -->
+
+    <header class="topbar">
+
+        <div>
+            <h1>SmartFleet</h1>
+            <p>Vehicle Tracking Dashboard</p>
+        </div>
+
+        <div class="connection-status">
+            <span id="connectionDot"></span>
+            <span id="connectionText">Đang kết nối...</span>
+        </div>
+
+    </header>
+
+
+    <!-- ===================================================== -->
+    <!-- MAIN CONTENT -->
+    <!-- ===================================================== -->
+
+    <main class="dashboard-container">
+
+        <!-- ================================================= -->
+        <!-- SUMMARY CARDS -->
+        <!-- ================================================= -->
+
+        <section class="summary-grid">
+
+            <div class="summary-card">
+
+                <span class="card-label">
+                    Phương tiện
+                </span>
+
+                <strong id="vehicleCode">
+                    --
+                </strong>
+
+                <small id="deviceId">
+                    TRUCK_001
+                </small>
+
+            </div>
+
+
+            <div class="summary-card">
+
+                <span class="card-label">
+                    Chuyến đi
+                </span>
+
+                <strong id="tripCode">
+                    --
+                </strong>
+
+                <small id="tripId">
+                    Trip ID: --
+                </small>
+
+            </div>
+
+
+            <div class="summary-card">
+
+                <span class="card-label">
+                    Trạng thái
+                </span>
+
+                <strong id="tripStatus">
+                    --
+                </strong>
+
+                <small id="vehicleStatus">
+                    Vehicle: --
+                </small>
+
+            </div>
+
+
+            <div class="summary-card">
+
+                <span class="card-label">
+                    GPS Logs
+                </span>
+
+                <strong id="gpsPointCount">
+                    0
+                </strong>
+
+                <small>
+                    Điểm GPS
+                </small>
+
+            </div>
+
+        </section>
+
+
+        <!-- ================================================= -->
+        <!-- MAP + VEHICLE INFORMATION -->
+        <!-- ================================================= -->
+
+        <section class="tracking-grid">
+
+            <!-- MAP -->
+
+            <div class="map-panel">
+
+                <div class="panel-header">
+
+                    <div>
+                        <h2>Theo dõi phương tiện</h2>
+
+                        <p id="routeDescription">
+                            Đang tải dữ liệu hành trình...
+                        </p>
+                    </div>
+
+                    <button
+                        id="refreshButton"
+                        type="button"
+                    >
+                        Cập nhật
+                    </button>
+
+                </div>
+
+
+                <!-- Leaflet map -->
+
+                <div id="map"></div>
+
+            </div>
+
+
+            <!-- VEHICLE INFO -->
+
+            <aside class="vehicle-panel">
+
+                <div class="panel-header">
+
+                    <div>
+                        <h2>Thông tin GPS</h2>
+                        <p>Dữ liệu mới nhất</p>
+                    </div>
+
+                </div>
+
+
+                <div class="vehicle-data">
+
+                    <div class="data-item">
+
+                        <span>
+                            Tốc độ
+                        </span>
+
+                        <strong>
+                            <span id="speed">--</span>
+                            km/h
+                        </strong>
+
+                    </div>
+
+
+                    <div class="data-item">
+
+                        <span>
+                            Vệ tinh
+                        </span>
+
+                        <strong id="satellites">
+                            --
+                        </strong>
+
+                    </div>
+
+
+                    <div class="data-item">
+
+                        <span>
+                            GPS Log ID
+                        </span>
+
+                        <strong id="gpsLogId">
+                            --
+                        </strong>
+
+                    </div>
+
+
+                    <div class="data-item">
+
+                        <span>
+                            Cập nhật cuối
+                        </span>
+
+                        <strong id="lastUpdate">
+                            --
+                        </strong>
+
+                    </div>
+
+                </div>
+
+
+                <!-- ROUTE INFORMATION -->
+
+                <div class="route-information">
+
+                    <h3>Hành trình</h3>
+
+
+                    <div class="route-item">
+
+                        <span>
+                            Điểm xuất phát
+                        </span>
+
+                        <strong id="originName">
+                            --
+                        </strong>
+
+                    </div>
+
+
+                    <div class="route-arrow">
+                        ↓
+                    </div>
+
+
+                    <div class="route-item">
+
+                        <span>
+                            Điểm đến
+                        </span>
+
+                        <strong id="destinationName">
+                            --
+                        </strong>
+
+                    </div>
+
+                </div>
+
+
+                <!-- AUTO UPDATE -->
+
+                <div class="auto-update">
+
+                    <span>
+                        Tự động cập nhật
+                    </span>
+
+                    <strong>
+                        10 giây
+                    </strong>
+
+                </div>
+
+            </aside>
+
+        </section>
+
+
+        <!-- ================================================= -->
+        <!-- SYSTEM STATUS -->
+        <!-- ================================================= -->
+
+        <section class="system-panel">
+
+            <div>
+
+                <span class="system-label">
+                    API
+                </span>
+
+                <strong id="apiStatus">
+                    Đang kiểm tra...
+                </strong>
+
+            </div>
+
+
+            <div>
+
+                <span class="system-label">
+                    Thiết bị
+                </span>
+
+                <strong>
+                    TRUCK_001
+                </strong>
+
+            </div>
+
+
+            <div>
+
+                <span class="system-label">
+                    Cập nhật dữ liệu
+                </span>
+
+                <strong id="updateCountdown">
+                    10s
+                </strong>
+
+            </div>
+
+        </section>
+
+    </main>
+
+
+    <!-- ===================================================== -->
+    <!-- FOOTER -->
+    <!-- ===================================================== -->
+
+    <footer>
+
+        SmartFleet IoT Vehicle Monitoring System
+
+    </footer>
+
+
+    <!-- ===================================================== -->
+    <!-- JAVASCRIPT -->
+    <!-- ===================================================== -->
+
+    <!-- Leaflet -->
+
+    <script
+        src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    ></script>
+
+
+    <!-- Dashboard JS - sẽ tạo ở bước sau -->
+
+    <script
+        src="{{ url_for('static', filename='js/dashboard.js') }}"
+    ></script>
+
+</body>
+</html>
