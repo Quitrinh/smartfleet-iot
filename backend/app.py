@@ -5,7 +5,6 @@ import psycopg
 from psycopg.rows import dict_row
 from flask import Flask, request, jsonify
 from werkzeug.security import check_password_hash
-from sqlalchemy import create_engine, text
 
 app = Flask(__name__)
 
@@ -854,369 +853,12 @@ def start_trip():
             "reason": "SERVER_ERROR",
             "message": "Could not start trip"
         }), 500
+
+
 # ============================================================
 # ACCESS EVENT
 # Existing endpoint - keep for compatibility with ESP32
 # ============================================================
-# ============================================================
-# GPS LOCATION
-# ============================================================
-#
-# ESP32 gửi vị trí GPS trong khi trip đang IN_PROGRESS.
-#
-# Request:
-#
-# {
-#     "device_id": "TRUCK_001",
-#     "trip_id": 1,
-#     "latitude": 10.123456,
-#     "longitude": 106.123456,
-#     "speed_kmh": 25.5,
-#     "satellites": 8
-# }
-#
-# Backend sẽ:
-#
-# 1. Kiểm tra request
-# 2. Tìm vehicle từ device_id
-# 3. Tìm trip
-# 4. Kiểm tra trip thuộc vehicle
-# 5. Kiểm tra trip đang IN_PROGRESS
-# 6. Kiểm tra tọa độ
-# 7. Ghi gps_logs
-#
-# ============================================================
-
-@app.route("/api/gps", methods=["POST"])
-def save_gps_location():
-
-    try:
-
-        # ====================================================
-        # READ JSON
-        # ====================================================
-
-        data = request.get_json(silent=True)
-
-        if not data:
-            return jsonify({
-                "status": "error",
-                "saved": False,
-                "reason": "INVALID_JSON"
-            }), 400
-
-
-        # ====================================================
-        # GET FIELDS
-        # ====================================================
-
-        device_id = data.get("device_id")
-        trip_id = data.get("trip_id")
-        latitude = data.get("latitude")
-        longitude = data.get("longitude")
-
-        # Hai field này có thể không có.
-        speed_kmh = data.get("speed_kmh")
-        satellites = data.get("satellites")
-
-
-        # ====================================================
-        # REQUIRED FIELDS
-        # ====================================================
-
-        if (
-            not device_id
-            or trip_id is None
-            or latitude is None
-            or longitude is None
-        ):
-            return jsonify({
-                "status": "error",
-                "saved": False,
-                "reason": "MISSING_FIELDS"
-            }), 400
-
-
-        # ====================================================
-        # CONVERT TYPES
-        # ====================================================
-
-        try:
-            trip_id = int(trip_id)
-            latitude = float(latitude)
-            longitude = float(longitude)
-
-            if speed_kmh is not None:
-                speed_kmh = float(speed_kmh)
-
-            if satellites is not None:
-                satellites = int(satellites)
-
-        except (TypeError, ValueError):
-
-            return jsonify({
-                "status": "error",
-                "saved": False,
-                "reason": "INVALID_DATA_TYPE"
-            }), 400
-
-
-        # ====================================================
-        # VALIDATE TRIP ID
-        # ====================================================
-
-        if trip_id <= 0:
-            return jsonify({
-                "status": "error",
-                "saved": False,
-                "reason": "INVALID_TRIP_ID"
-            }), 400
-
-
-        # ====================================================
-        # VALIDATE COORDINATES
-        # ====================================================
-
-        if not (-90.0 <= latitude <= 90.0):
-            return jsonify({
-                "status": "error",
-                "saved": False,
-                "reason": "INVALID_LATITUDE"
-            }), 400
-
-
-        if not (-180.0 <= longitude <= 180.0):
-            return jsonify({
-                "status": "error",
-                "saved": False,
-                "reason": "INVALID_LONGITUDE"
-            }), 400
-
-
-        # ====================================================
-        # VALIDATE SPEED
-        # ====================================================
-
-        if speed_kmh is not None and speed_kmh < 0:
-            return jsonify({
-                "status": "error",
-                "saved": False,
-                "reason": "INVALID_SPEED"
-            }), 400
-
-
-        # ====================================================
-        # VALIDATE SATELLITES
-        # ====================================================
-
-        if satellites is not None and satellites < 0:
-            return jsonify({
-                "status": "error",
-                "saved": False,
-                "reason": "INVALID_SATELLITES"
-            }), 400
-
-
-        # ====================================================
-        # DATABASE CONNECTION
-        # ====================================================
-
-        with engine.begin() as conn:
-
-            # =================================================
-            # FIND VEHICLE
-            # =================================================
-
-            vehicle = conn.execute(
-                text("""
-                    SELECT
-                        id,
-                        vehicle_code,
-                        device_id,
-                        status
-                    FROM vehicles
-                    WHERE device_id = :device_id
-                    LIMIT 1
-                """),
-                {
-                    "device_id": device_id
-                }
-            ).mappings().first()
-
-
-            if vehicle is None:
-                return jsonify({
-                    "status": "ok",
-                    "saved": False,
-                    "reason": "VEHICLE_NOT_FOUND"
-                }), 200
-
-
-            # =================================================
-            # VEHICLE DISABLED
-            # =================================================
-
-            if vehicle["status"] == "DISABLED":
-                return jsonify({
-                    "status": "ok",
-                    "saved": False,
-                    "reason": "VEHICLE_DISABLED"
-                }), 200
-
-
-            # =================================================
-            # FIND TRIP
-            # =================================================
-
-            trip = conn.execute(
-                text("""
-                    SELECT
-                        id,
-                        trip_code,
-                        driver_id,
-                        vehicle_id,
-                        status
-                    FROM trips
-                    WHERE id = :trip_id
-                    LIMIT 1
-                """),
-                {
-                    "trip_id": trip_id
-                }
-            ).mappings().first()
-
-
-            if trip is None:
-                return jsonify({
-                    "status": "ok",
-                    "saved": False,
-                    "reason": "TRIP_NOT_FOUND"
-                }), 200
-
-
-            # =================================================
-            # VERIFY TRIP -> VEHICLE
-            # =================================================
-
-            if trip["vehicle_id"] != vehicle["id"]:
-                return jsonify({
-                    "status": "ok",
-                    "saved": False,
-                    "reason": "TRIP_VEHICLE_MISMATCH"
-                }), 200
-
-
-            # =================================================
-            # TRIP MUST BE ACTIVE
-            # =================================================
-
-            if trip["status"] != "IN_PROGRESS":
-                return jsonify({
-                    "status": "ok",
-                    "saved": False,
-                    "reason": "TRIP_NOT_IN_PROGRESS",
-                    "trip_status": trip["status"]
-                }), 200
-
-
-            # =================================================
-            # VEHICLE SHOULD BE IN_TRIP
-            # =================================================
-
-            if vehicle["status"] != "IN_TRIP":
-                return jsonify({
-                    "status": "ok",
-                    "saved": False,
-                    "reason": "VEHICLE_NOT_IN_TRIP",
-                    "vehicle_status": vehicle["status"]
-                }), 200
-
-
-            # =================================================
-            # INSERT GPS LOG
-            # =================================================
-
-            gps_log = conn.execute(
-                text("""
-                    INSERT INTO gps_logs (
-                        trip_id,
-                        vehicle_id,
-                        latitude,
-                        longitude,
-                        speed_kmh,
-                        satellites
-                    )
-                    VALUES (
-                        :trip_id,
-                        :vehicle_id,
-                        :latitude,
-                        :longitude,
-                        :speed_kmh,
-                        :satellites
-                    )
-                    RETURNING
-                        id,
-                        recorded_at
-                """),
-                {
-                    "trip_id": trip["id"],
-                    "vehicle_id": vehicle["id"],
-                    "latitude": latitude,
-                    "longitude": longitude,
-                    "speed_kmh": speed_kmh,
-                    "satellites": satellites
-                }
-            ).mappings().first()
-
-
-        # ====================================================
-        # SUCCESS
-        # ====================================================
-
-        return jsonify({
-
-            "status": "ok",
-
-            "saved": True,
-
-            "gps_log": {
-                "id": gps_log["id"],
-                "recorded_at": gps_log["recorded_at"].isoformat()
-            },
-
-            "trip": {
-                "id": trip["id"],
-                "trip_code": trip["trip_code"],
-                "status": trip["status"]
-            },
-
-            "vehicle": {
-                "id": vehicle["id"],
-                "vehicle_code": vehicle["vehicle_code"],
-                "device_id": vehicle["device_id"],
-                "status": vehicle["status"]
-            }
-
-        }), 200
-
-
-    # ========================================================
-    # SERVER ERROR
-    # ========================================================
-
-    except Exception as e:
-
-        print(
-            "[GPS ERROR]",
-            str(e)
-        )
-
-        return jsonify({
-            "status": "error",
-            "saved": False,
-            "reason": "SERVER_ERROR"
-        }), 500
-
 
 @app.post("/api/access")
 def access():
@@ -1232,21 +874,466 @@ def access():
 
 
 # ============================================================
-# GPS
-# Existing endpoint
+# GPS LOCATION
+# ============================================================
+#
+# ESP32 sends:
+#
+# {
+#     "device_id": "TRUCK_001",
+#     "trip_id": 1,
+#     "latitude": 10.75,
+#     "longitude": 106.67,
+#     "speed_kmh": 25.5,
+#     "satellites": 8
+# }
+#
+# Backend:
+#
+# 1. Validate JSON
+# 2. Validate data types
+# 3. Validate GPS coordinates
+# 4. Find vehicle using device_id
+# 5. Find trip using trip_id
+# 6. Verify trip belongs to vehicle
+# 7. Verify trip is IN_PROGRESS
+# 8. Verify vehicle is IN_TRIP
+# 9. Insert into gps_logs
+#
 # ============================================================
 
 @app.post("/api/gps")
-def gps():
+def save_gps_location():
 
-    data = request.get_json(silent=True) or {}
+    # ========================================================
+    # 1. READ JSON
+    # ========================================================
 
-    return jsonify({
-        "status": "ok",
-        "message": "GPS data received",
-        "received": data,
-        "timestamp": datetime.now(timezone.utc).isoformat()
-    })
+    data = request.get_json(silent=True)
+
+    if not data:
+
+        return jsonify({
+            "status": "error",
+            "saved": False,
+            "reason": "INVALID_JSON"
+        }), 400
+
+
+    # ========================================================
+    # 2. GET FIELDS
+    # ========================================================
+
+    device_id = str(
+        data.get("device_id", "")
+    ).strip()
+
+    trip_id = data.get("trip_id")
+
+    latitude = data.get("latitude")
+
+    longitude = data.get("longitude")
+
+    # Optional fields
+    speed_kmh = data.get("speed_kmh")
+
+    satellites = data.get("satellites")
+
+
+    # ========================================================
+    # 3. REQUIRED FIELDS
+    # ========================================================
+
+    if (
+        not device_id
+        or trip_id is None
+        or latitude is None
+        or longitude is None
+    ):
+
+        return jsonify({
+            "status": "error",
+            "saved": False,
+            "reason": "MISSING_FIELDS",
+            "message":
+                "device_id, trip_id, latitude and longitude are required"
+        }), 400
+
+
+    # ========================================================
+    # 4. CONVERT DATA TYPES
+    # ========================================================
+
+    try:
+
+        trip_id = int(trip_id)
+
+        latitude = float(latitude)
+
+        longitude = float(longitude)
+
+        if speed_kmh is not None:
+            speed_kmh = float(speed_kmh)
+
+        if satellites is not None:
+            satellites = int(satellites)
+
+    except (TypeError, ValueError):
+
+        return jsonify({
+            "status": "error",
+            "saved": False,
+            "reason": "INVALID_DATA_TYPE"
+        }), 400
+
+
+    # ========================================================
+    # 5. VALIDATE TRIP ID
+    # ========================================================
+
+    if trip_id <= 0:
+
+        return jsonify({
+            "status": "error",
+            "saved": False,
+            "reason": "INVALID_TRIP_ID"
+        }), 400
+
+
+    # ========================================================
+    # 6. VALIDATE LATITUDE
+    # ========================================================
+
+    if not (-90.0 <= latitude <= 90.0):
+
+        return jsonify({
+            "status": "error",
+            "saved": False,
+            "reason": "INVALID_LATITUDE"
+        }), 400
+
+
+    # ========================================================
+    # 7. VALIDATE LONGITUDE
+    # ========================================================
+
+    if not (-180.0 <= longitude <= 180.0):
+
+        return jsonify({
+            "status": "error",
+            "saved": False,
+            "reason": "INVALID_LONGITUDE"
+        }), 400
+
+
+    # ========================================================
+    # 8. VALIDATE SPEED
+    # ========================================================
+
+    if speed_kmh is not None and speed_kmh < 0:
+
+        return jsonify({
+            "status": "error",
+            "saved": False,
+            "reason": "INVALID_SPEED"
+        }), 400
+
+
+    # ========================================================
+    # 9. VALIDATE SATELLITES
+    # ========================================================
+
+    if satellites is not None and satellites < 0:
+
+        return jsonify({
+            "status": "error",
+            "saved": False,
+            "reason": "INVALID_SATELLITES"
+        }), 400
+
+
+    # ========================================================
+    # 10. DATABASE
+    # ========================================================
+
+    try:
+
+        # IMPORTANT:
+        # Use the same psycopg connection as Auth and Start Trip.
+        #
+        # Do NOT use:
+        #
+        # with engine.begin() as conn:
+        #
+        # here.
+
+        with get_db_connection() as conn:
+
+            with conn.cursor() as cur:
+
+                # =================================================
+                # 11. FIND VEHICLE
+                # =================================================
+
+                cur.execute(
+                    """
+                    SELECT
+                        id,
+                        vehicle_code,
+                        device_id,
+                        status
+                    FROM vehicles
+                    WHERE device_id = %s
+                    LIMIT 1
+                    """,
+                    (device_id,)
+                )
+
+                vehicle = cur.fetchone()
+
+
+                if vehicle is None:
+
+                    return jsonify({
+                        "status": "ok",
+                        "saved": False,
+                        "reason": "VEHICLE_NOT_FOUND"
+                    }), 200
+
+
+                # =================================================
+                # 12. CHECK VEHICLE STATUS
+                # =================================================
+
+                if vehicle["status"] == "DISABLED":
+
+                    return jsonify({
+                        "status": "ok",
+                        "saved": False,
+                        "reason": "VEHICLE_DISABLED"
+                    }), 200
+
+
+                # =================================================
+                # 13. FIND TRIP
+                # =================================================
+
+                cur.execute(
+                    """
+                    SELECT
+                        id,
+                        trip_code,
+                        driver_id,
+                        vehicle_id,
+                        origin_name,
+                        destination_name,
+                        status,
+                        started_at
+                    FROM trips
+                    WHERE id = %s
+                    LIMIT 1
+                    """,
+                    (trip_id,)
+                )
+
+                trip = cur.fetchone()
+
+
+                if trip is None:
+
+                    return jsonify({
+                        "status": "ok",
+                        "saved": False,
+                        "reason": "TRIP_NOT_FOUND"
+                    }), 200
+
+
+                # =================================================
+                # 14. VERIFY TRIP -> VEHICLE
+                # =================================================
+
+                if trip["vehicle_id"] != vehicle["id"]:
+
+                    return jsonify({
+                        "status": "ok",
+                        "saved": False,
+                        "reason": "TRIP_VEHICLE_MISMATCH"
+                    }), 200
+
+
+                # =================================================
+                # 15. TRIP MUST BE IN_PROGRESS
+                # =================================================
+
+                if trip["status"] != "IN_PROGRESS":
+
+                    return jsonify({
+                        "status": "ok",
+                        "saved": False,
+                        "reason": "TRIP_NOT_IN_PROGRESS",
+                        "trip_status": trip["status"]
+                    }), 200
+
+
+                # =================================================
+                # 16. VEHICLE MUST BE IN_TRIP
+                # =================================================
+
+                if vehicle["status"] != "IN_TRIP":
+
+                    return jsonify({
+                        "status": "ok",
+                        "saved": False,
+                        "reason": "VEHICLE_NOT_IN_TRIP",
+                        "vehicle_status": vehicle["status"]
+                    }), 200
+
+
+                # =================================================
+                # 17. INSERT GPS LOG
+                # =================================================
+
+                cur.execute(
+                    """
+                    INSERT INTO gps_logs (
+                        trip_id,
+                        vehicle_id,
+                        latitude,
+                        longitude,
+                        speed_kmh,
+                        satellites
+                    )
+                    VALUES (
+                        %s,
+                        %s,
+                        %s,
+                        %s,
+                        %s,
+                        %s
+                    )
+                    RETURNING
+                        id,
+                        trip_id,
+                        vehicle_id,
+                        latitude,
+                        longitude,
+                        speed_kmh,
+                        satellites,
+                        recorded_at
+                    """,
+                    (
+                        trip["id"],
+                        vehicle["id"],
+                        latitude,
+                        longitude,
+                        speed_kmh,
+                        satellites
+                    )
+                )
+
+                gps_log = cur.fetchone()
+
+
+            # =====================================================
+            # psycopg connection context commits automatically
+            # when no exception occurs.
+            # =====================================================
+
+
+        # ========================================================
+        # 18. SUCCESS RESPONSE
+        # ========================================================
+
+        return jsonify({
+
+            "status": "ok",
+
+            "saved": True,
+
+            "gps_log": {
+
+                "id":
+                    gps_log["id"],
+
+                "trip_id":
+                    gps_log["trip_id"],
+
+                "vehicle_id":
+                    gps_log["vehicle_id"],
+
+                "latitude":
+                    gps_log["latitude"],
+
+                "longitude":
+                    gps_log["longitude"],
+
+                "speed_kmh":
+                    gps_log["speed_kmh"],
+
+                "satellites":
+                    gps_log["satellites"],
+
+                "recorded_at":
+                    gps_log["recorded_at"].isoformat()
+                    if gps_log["recorded_at"]
+                    else None
+            },
+
+            "trip": {
+
+                "id":
+                    trip["id"],
+
+                "trip_code":
+                    trip["trip_code"],
+
+                "status":
+                    trip["status"],
+
+                "origin_name":
+                    trip["origin_name"],
+
+                "destination_name":
+                    trip["destination_name"]
+            },
+
+            "vehicle": {
+
+                "id":
+                    vehicle["id"],
+
+                "vehicle_code":
+                    vehicle["vehicle_code"],
+
+                "device_id":
+                    vehicle["device_id"],
+
+                "status":
+                    vehicle["status"]
+            }
+
+        }), 200
+
+
+    # ========================================================
+    # 19. SERVER ERROR
+    # ========================================================
+
+    except Exception as e:
+
+        # Print actual exception to Azure logs.
+        # Do not return database internals to production clients.
+        print(
+            "[GPS DATABASE ERROR]",
+            repr(e)
+        )
+
+        return jsonify({
+            "status": "error",
+            "saved": False,
+            "reason": "SERVER_ERROR",
+            "message": "Could not save GPS location"
+        }), 500
 
 
 # ============================================================
