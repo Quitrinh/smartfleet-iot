@@ -1,15 +1,7 @@
 /* ============================================================
-   SMARTFLEET - FLEET TRACKING
+   SMARTFLEET
+   FLEET TRACKING
    tracking.js
-
-   Chức năng:
-   - Hiển thị toàn bộ xe đang chạy
-   - Một marker cho mỗi xe
-   - Tìm kiếm xe / tài xế / chuyến đi
-   - Click xe để xem chi tiết
-   - Focus riêng một xe
-   - Vẽ lịch sử hành trình của trip
-   - Auto refresh mỗi 10 giây
 ============================================================ */
 
 
@@ -24,30 +16,26 @@ const REFRESH_INTERVAL = 10000;
 
 
 /* ============================================================
-   GLOBAL STATE
+   STATE
 ============================================================ */
 
 let map = null;
 
-let vehicleMarkers = new Map();
-
 let fleetVehicles = [];
 
-let selectedVehicle = null;
+let vehicleMarkers = new Map();
 
+let selectedVehicle = null;
 let selectedVehicleId = null;
 
 let routePolyline = null;
 
-let refreshTimer = null;
+let firstMapLoad = true;
 
+let refreshTimer = null;
 let countdownTimer = null;
 
 let countdownValue = REFRESH_INTERVAL / 1000;
-
-let firstMapLoad = true;
-
-let routeTripId = null;
 
 
 /* ============================================================
@@ -62,6 +50,9 @@ const vehicleSearchElement =
 
 const refreshButton =
     document.getElementById("refreshButton");
+
+
+/* Summary */
 
 const activeVehicleCount =
     document.getElementById("activeVehicleCount");
@@ -80,6 +71,9 @@ const vehicleListCount =
 
 const mapVehicleCount =
     document.getElementById("mapVehicleCount");
+
+
+/* Server */
 
 const serverStatusDot =
     document.getElementById("serverStatusDot");
@@ -146,47 +140,59 @@ const cameraButton =
 
 
 /* ============================================================
-   INIT
+   START
 ============================================================ */
 
-document.addEventListener("DOMContentLoaded", async () => {
+document.addEventListener(
+    "DOMContentLoaded",
+    async () => {
 
-    initializeMap();
+        initMap();
 
-    registerEvents();
+        registerEvents();
 
-    await checkServer();
+        await checkServer();
 
-    await loadFleetTracking();
+        await loadFleetTracking();
 
-    startAutoRefresh();
+        startAutoRefresh();
 
-});
+    }
+);
 
 
 /* ============================================================
    MAP
 ============================================================ */
 
-function initializeMap() {
+function initMap() {
 
-    map = L.map("map", {
-        zoomControl: true
-    });
+    map = L.map(
+        "map",
+        {
+            zoomControl: true
+        }
+    );
+
 
     /*
-        Không hardcode vị trí xe.
+        Đây chỉ là vị trí nhìn mặc định.
 
-        Đây chỉ là góc nhìn ban đầu.
-        Khi API trả GPS, map sẽ tự fit theo marker.
+        Khi có GPS thật, bản đồ sẽ tự động
+        zoom tới vị trí của đội xe.
     */
 
-    map.setView([16.0, 108.0], 5);
+    map.setView(
+        [16.0, 108.0],
+        5
+    );
+
 
     L.tileLayer(
         "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
         {
             maxZoom: 19,
+
             attribution:
                 '&copy; OpenStreetMap contributors'
         }
@@ -200,6 +206,8 @@ function initializeMap() {
 ============================================================ */
 
 function registerEvents() {
+
+    /* Refresh */
 
     if (refreshButton) {
 
@@ -215,6 +223,8 @@ function registerEvents() {
     }
 
 
+    /* Search */
+
     if (vehicleSearchElement) {
 
         vehicleSearchElement.addEventListener(
@@ -228,6 +238,8 @@ function registerEvents() {
 
     }
 
+
+    /* Focus vehicle */
 
     if (focusVehicleButton) {
 
@@ -243,6 +255,8 @@ function registerEvents() {
     }
 
 
+    /* Show route */
+
     if (showRouteButton) {
 
         showRouteButton.addEventListener(
@@ -252,6 +266,12 @@ function registerEvents() {
                 if (!selectedVehicle) {
                     return;
                 }
+
+
+                if (!selectedVehicle.trip_id) {
+                    return;
+                }
+
 
                 await showVehicleRoute(
                     selectedVehicle.trip_id
@@ -280,6 +300,7 @@ async function checkServer() {
             }
         );
 
+
         if (!response.ok) {
 
             throw new Error(
@@ -288,15 +309,17 @@ async function checkServer() {
 
         }
 
+
         setServerOnline(true);
 
     }
     catch (error) {
 
         console.error(
-            "Health check error:",
+            "[HEALTH ERROR]",
             error
         );
+
 
         setServerOnline(false);
 
@@ -304,6 +327,10 @@ async function checkServer() {
 
 }
 
+
+/* ============================================================
+   SERVER STATUS UI
+============================================================ */
 
 function setServerOnline(isOnline) {
 
@@ -313,6 +340,7 @@ function setServerOnline(isOnline) {
             "online",
             "offline"
         );
+
 
         serverStatusDot.classList.add(
             isOnline
@@ -336,7 +364,7 @@ function setServerOnline(isOnline) {
 
 
 /* ============================================================
-   LOAD ACTIVE FLEET
+   LOAD FLEET TRACKING
 ============================================================ */
 
 async function loadFleetTracking() {
@@ -346,6 +374,7 @@ async function loadFleetTracking() {
         setTrackingStatus(
             "Đang cập nhật..."
         );
+
 
         const response = await fetch(
             TRACKING_API,
@@ -358,20 +387,21 @@ async function loadFleetTracking() {
         if (!response.ok) {
 
             throw new Error(
-                `Tracking API HTTP ${response.status}`
+                `HTTP ${response.status}`
             );
 
         }
 
 
-        const data = await response.json();
+        const data =
+            await response.json();
 
 
         if (data.status !== "ok") {
 
             throw new Error(
                 data.message ||
-                "Tracking API returned an error"
+                "Tracking API error"
             );
 
         }
@@ -382,6 +412,10 @@ async function loadFleetTracking() {
                 ? data.vehicles
                 : [];
 
+
+        /* -----------------------------------------
+           Update UI
+        ----------------------------------------- */
 
         updateSummary();
 
@@ -394,18 +428,44 @@ async function loadFleetTracking() {
         );
 
 
-        /*
-            Nếu xe đang được chọn,
-            lấy object mới nhất sau refresh.
-        */
+        /* -----------------------------------------
+           AUTO SELECT FIRST VEHICLE
+
+           Nếu chưa chọn xe và có ít nhất 1 xe,
+           tự chọn xe đầu tiên.
+        ----------------------------------------- */
+
+        if (
+            selectedVehicleId === null &&
+            fleetVehicles.length > 0
+        ) {
+
+            selectVehicle(
+                fleetVehicles[0].vehicle_id,
+                false
+            );
+
+        }
+
+
+        /* -----------------------------------------
+           REFRESH SELECTED VEHICLE
+
+           Nếu đã chọn xe thì lấy object mới nhất
+           sau mỗi lần API refresh.
+        ----------------------------------------- */
 
         if (selectedVehicleId !== null) {
 
             const updatedVehicle =
                 fleetVehicles.find(
                     vehicle =>
-                        String(vehicle.vehicle_id) ===
-                        String(selectedVehicleId)
+                        String(
+                            vehicle.vehicle_id
+                        ) ===
+                        String(
+                            selectedVehicleId
+                        )
                 );
 
 
@@ -413,6 +473,7 @@ async function loadFleetTracking() {
 
                 selectedVehicle =
                     updatedVehicle;
+
 
                 updateSelectedVehiclePanel(
                     updatedVehicle
@@ -432,19 +493,22 @@ async function loadFleetTracking() {
             "Online"
         );
 
+
         setServerOnline(true);
 
     }
     catch (error) {
 
         console.error(
-            "Fleet tracking error:",
+            "[TRACKING ERROR]",
             error
         );
+
 
         setTrackingStatus(
             "Lỗi kết nối"
         );
+
 
         showVehicleListError();
 
@@ -459,68 +523,64 @@ async function loadFleetTracking() {
 
 function updateSummary() {
 
-    const total =
+    const totalVehicles =
         fleetVehicles.length;
 
 
-    const gpsOnline =
+    const onlineVehicles =
         fleetVehicles.filter(
             vehicle =>
                 vehicle.gps_available === true &&
                 isValidGPS(vehicle.gps)
-        ).length;
-
-
-    /*
-        Một driver có thể xuất hiện một lần
-        trong active trip hiện tại.
-
-        Dùng Set để tránh đếm trùng.
-    */
-
-    const driverIds =
-        new Set(
-            fleetVehicles
-                .filter(
-                    vehicle =>
-                        vehicle.driver_id !== null &&
-                        vehicle.driver_id !== undefined
-                )
-                .map(
-                    vehicle =>
-                        String(vehicle.driver_id)
-                )
         );
 
 
-    if (activeVehicleCount) {
-
-        activeVehicleCount.textContent =
-            total;
-
-    }
+    const drivers =
+        new Set();
 
 
-    if (gpsOnlineCount) {
+    fleetVehicles.forEach(
+        vehicle => {
 
-        gpsOnlineCount.textContent =
-            gpsOnline;
+            if (
+                vehicle.driver_id !== null &&
+                vehicle.driver_id !== undefined
+            ) {
 
-    }
+                drivers.add(
+                    String(
+                        vehicle.driver_id
+                    )
+                );
+
+            }
+
+        }
+    );
 
 
-    if (activeDriverCount) {
+    setText(
+        activeVehicleCount,
+        totalVehicles
+    );
 
-        activeDriverCount.textContent =
-            driverIds.size;
 
-    }
+    setText(
+        gpsOnlineCount,
+        onlineVehicles.length
+    );
+
+
+    setText(
+        activeDriverCount,
+        drivers.size
+    );
 
 
     if (vehicleListCount) {
 
         vehicleListCount.textContent =
-            `${total} phương tiện`;
+            `${totalVehicles} phương tiện`;
 
     }
 
@@ -528,7 +588,7 @@ function updateSummary() {
     if (mapVehicleCount) {
 
         mapVehicleCount.textContent =
-            `${gpsOnline} xe`;
+            `${onlineVehicles.length} xe`;
 
     }
 
@@ -553,11 +613,14 @@ function renderVehicleList(vehicles) {
 
         vehicleListElement.innerHTML = `
             <div class="empty-state">
+
                 <i class="fa-solid fa-truck"></i>
+
                 <p>
                     Hiện không có phương tiện
-                    nào đang thực hiện chuyến đi.
+                    đang thực hiện chuyến đi.
                 </p>
+
             </div>
         `;
 
@@ -566,18 +629,24 @@ function renderVehicleList(vehicles) {
     }
 
 
-    vehicles.forEach(vehicle => {
+    vehicles.forEach(
+        vehicle => {
 
-        const item =
-            createVehicleListItem(
-                vehicle
+            const item =
+                createVehicleItem(
+                    vehicle
+                );
+
+
+            vehicleListElement.appendChild(
+                item
             );
 
-        vehicleListElement.appendChild(
-            item
-        );
+        }
+    );
 
-    });
+
+    highlightSelectedVehicle();
 
 }
 
@@ -586,7 +655,7 @@ function renderVehicleList(vehicles) {
    CREATE VEHICLE ITEM
 ============================================================ */
 
-function createVehicleListItem(vehicle) {
+function createVehicleItem(vehicle) {
 
     const item =
         document.createElement("div");
@@ -600,22 +669,11 @@ function createVehicleListItem(vehicle) {
         vehicle.vehicle_id;
 
 
-    if (
-        selectedVehicleId !== null &&
-        String(selectedVehicleId) ===
-        String(vehicle.vehicle_id)
-    ) {
-
-        item.classList.add(
-            "active"
-        );
-
-    }
-
-
     const gpsAvailable =
         vehicle.gps_available === true &&
-        isValidGPS(vehicle.gps);
+        isValidGPS(
+            vehicle.gps
+        );
 
 
     const gpsText =
@@ -625,9 +683,11 @@ function createVehicleListItem(vehicle) {
 
 
     item.innerHTML = `
+
         <div class="vehicle-item-header">
 
             <div class="vehicle-item-title">
+
                 <i class="fa-solid fa-truck"></i>
 
                 <span>
@@ -635,17 +695,14 @@ function createVehicleListItem(vehicle) {
                         vehicle.vehicle_code || "--"
                     )}
                 </span>
+
             </div>
 
-            <span
-                class="vehicle-item-status"
-                style="${
-                    gpsAvailable
-                        ? ""
-                        : "color:#94a3b8"
-                }"
-            >
+
+            <span class="vehicle-item-status">
+
                 ${gpsText}
+
             </span>
 
         </div>
@@ -654,6 +711,7 @@ function createVehicleListItem(vehicle) {
         <div class="vehicle-item-body">
 
             <div class="vehicle-item-row">
+
                 <span>Tài xế</span>
 
                 <strong>
@@ -661,10 +719,12 @@ function createVehicleListItem(vehicle) {
                         vehicle.driver_code || "--"
                     )}
                 </strong>
+
             </div>
 
 
             <div class="vehicle-item-row">
+
                 <span>Chuyến</span>
 
                 <strong>
@@ -672,10 +732,12 @@ function createVehicleListItem(vehicle) {
                         vehicle.trip_code || "--"
                     )}
                 </strong>
+
             </div>
 
 
             <div class="vehicle-item-row">
+
                 <span>Thiết bị</span>
 
                 <strong>
@@ -683,25 +745,48 @@ function createVehicleListItem(vehicle) {
                         vehicle.device_id || "--"
                     )}
                 </strong>
+
             </div>
 
 
             <div class="vehicle-item-row">
+
                 <span>Tốc độ</span>
 
                 <strong>
+
                     ${
                         gpsAvailable
-                            ? formatSpeed(
+                            ? `${formatSpeed(
                                 vehicle.gps.speed_kmh
-                            ) + " km/h"
+                            )} km/h`
                             : "--"
                     }
+
                 </strong>
+
             </div>
 
         </div>
     `;
+
+
+    if (!gpsAvailable) {
+
+        const status =
+            item.querySelector(
+                ".vehicle-item-status"
+            );
+
+
+        if (status) {
+
+            status.style.color =
+                "#94a3b8";
+
+        }
+
+    }
 
 
     item.addEventListener(
@@ -752,21 +837,26 @@ function filterVehicleList() {
         fleetVehicles.filter(
             vehicle => {
 
-                const searchableText = [
+                const text = [
+
                     vehicle.vehicle_code,
                     vehicle.device_id,
+
                     vehicle.driver_code,
                     vehicle.driver_name,
+
                     vehicle.trip_code,
+
                     vehicle.origin_name,
                     vehicle.destination_name
+
                 ]
                 .filter(Boolean)
                 .join(" ")
                 .toLowerCase();
 
 
-                return searchableText.includes(
+                return text.includes(
                     keyword
                 );
 
@@ -782,106 +872,128 @@ function filterVehicleList() {
 
 
 /* ============================================================
-   MARKERS
+   UPDATE MAP MARKERS
 ============================================================ */
 
 function updateFleetMarkers(vehicles) {
 
-    const activeMarkerIds =
+    const currentMarkerIds =
         new Set();
 
 
-    const markerBounds = [];
+    const bounds = [];
 
 
-    vehicles.forEach(vehicle => {
+    vehicles.forEach(
+        vehicle => {
 
-        if (!isValidGPS(vehicle.gps)) {
-            return;
-        }
+            if (
+                !isValidGPS(
+                    vehicle.gps
+                )
+            ) {
 
+                return;
 
-        const vehicleId =
-            String(vehicle.vehicle_id);
-
-
-        activeMarkerIds.add(
-            vehicleId
-        );
+            }
 
 
-        const latitude =
-            Number(vehicle.gps.latitude);
-
-        const longitude =
-            Number(vehicle.gps.longitude);
-
-
-        markerBounds.push([
-            latitude,
-            longitude
-        ]);
+            const vehicleId =
+                String(
+                    vehicle.vehicle_id
+                );
 
 
-        let marker =
-            vehicleMarkers.get(
+            currentMarkerIds.add(
                 vehicleId
             );
 
 
-        if (!marker) {
+            const latitude =
+                Number(
+                    vehicle.gps.latitude
+                );
 
-            marker = L.marker([
+
+            const longitude =
+                Number(
+                    vehicle.gps.longitude
+                );
+
+
+            bounds.push([
                 latitude,
                 longitude
             ]);
 
 
-            marker.addTo(map);
+            let marker =
+                vehicleMarkers.get(
+                    vehicleId
+                );
 
 
-            marker.on(
-                "click",
-                () => {
+            /* New marker */
 
-                    selectVehicle(
-                        vehicle.vehicle_id,
-                        false
-                    );
+            if (!marker) {
 
-                }
-            );
+                marker =
+                    L.marker([
+                        latitude,
+                        longitude
+                    ]);
 
 
-            vehicleMarkers.set(
-                vehicleId,
-                marker
+                marker.addTo(
+                    map
+                );
+
+
+                marker.on(
+                    "click",
+                    () => {
+
+                        selectVehicle(
+                            vehicle.vehicle_id,
+                            false
+                        );
+
+                    }
+                );
+
+
+                vehicleMarkers.set(
+                    vehicleId,
+                    marker
+                );
+
+            }
+
+            /* Existing marker */
+
+            else {
+
+                marker.setLatLng([
+                    latitude,
+                    longitude
+                ]);
+
+            }
+
+
+            marker.bindPopup(
+                createVehiclePopup(
+                    vehicle
+                )
             );
 
         }
-        else {
-
-            marker.setLatLng([
-                latitude,
-                longitude
-            ]);
-
-        }
+    );
 
 
-        marker.bindPopup(
-            createVehiclePopup(
-                vehicle
-            )
-        );
-
-    });
-
-
-    /*
-        Xóa marker của xe không còn
-        IN_PROGRESS.
-    */
+    /* -----------------------------------------
+       REMOVE OLD MARKERS
+    ----------------------------------------- */
 
     for (
         const [
@@ -892,7 +1004,7 @@ function updateFleetMarkers(vehicles) {
     ) {
 
         if (
-            !activeMarkerIds.has(
+            !currentMarkerIds.has(
                 vehicleId
             )
         ) {
@@ -900,6 +1012,7 @@ function updateFleetMarkers(vehicles) {
             map.removeLayer(
                 marker
             );
+
 
             vehicleMarkers.delete(
                 vehicleId
@@ -910,21 +1023,19 @@ function updateFleetMarkers(vehicles) {
     }
 
 
-    /*
-        Chỉ fit toàn bộ đội xe ở lần đầu.
-        Auto refresh không tự giật map
-        về toàn bộ xe.
-    */
+    /* -----------------------------------------
+       FIRST LOAD → SHOW ALL VEHICLES
+    ----------------------------------------- */
 
     if (
         firstMapLoad &&
-        markerBounds.length > 0
+        bounds.length > 0
     ) {
 
-        if (markerBounds.length === 1) {
+        if (bounds.length === 1) {
 
             map.setView(
-                markerBounds[0],
+                bounds[0],
                 16
             );
 
@@ -932,9 +1043,12 @@ function updateFleetMarkers(vehicles) {
         else {
 
             map.fitBounds(
-                markerBounds,
+                bounds,
                 {
-                    padding: [40, 40]
+                    padding: [
+                        40,
+                        40
+                    ]
                 }
             );
 
@@ -949,7 +1063,7 @@ function updateFleetMarkers(vehicles) {
 
 
 /* ============================================================
-   POPUP
+   VEHICLE POPUP
 ============================================================ */
 
 function createVehiclePopup(vehicle) {
@@ -959,63 +1073,81 @@ function createVehiclePopup(vehicle) {
 
 
     return `
+
         <div class="vehicle-popup">
 
             <div class="vehicle-popup-title">
+
                 ${escapeHTML(
                     vehicle.vehicle_code || "--"
                 )}
+
             </div>
 
 
             <div class="vehicle-popup-row">
-                Driver:
+
+                Tài xế:
+
                 <strong>
                     ${escapeHTML(
                         vehicle.driver_code || "--"
                     )}
                 </strong>
+
             </div>
 
 
             <div class="vehicle-popup-row">
-                Trip:
+
+                Chuyến:
+
                 <strong>
                     ${escapeHTML(
                         vehicle.trip_code || "--"
                     )}
                 </strong>
+
             </div>
 
 
             <div class="vehicle-popup-row">
-                Speed:
+
+                Tốc độ:
+
                 <strong>
                     ${formatSpeed(
                         gps.speed_kmh
                     )} km/h
                 </strong>
+
             </div>
 
 
             <div class="vehicle-popup-row">
-                Satellites:
+
+                Vệ tinh:
+
                 <strong>
                     ${
                         gps.satellites ??
                         "--"
                     }
                 </strong>
+
             </div>
 
 
             <div class="vehicle-popup-row">
-                Updated:
+
+                Cập nhật:
+
                 <strong>
                     ${formatDateTime(
                         gps.last_gps_at
                     )}
                 </strong>
+
             </div>
 
         </div>
@@ -1036,8 +1168,12 @@ function selectVehicle(
     const vehicle =
         fleetVehicles.find(
             item =>
-                String(item.vehicle_id) ===
-                String(vehicleId)
+                String(
+                    item.vehicle_id
+                ) ===
+                String(
+                    vehicleId
+                )
         );
 
 
@@ -1048,6 +1184,7 @@ function selectVehicle(
 
     selectedVehicle =
         vehicle;
+
 
     selectedVehicleId =
         vehicle.vehicle_id;
@@ -1062,7 +1199,9 @@ function selectVehicle(
 
 
     if (
-        isValidGPS(vehicle.gps)
+        isValidGPS(
+            vehicle.gps
+        )
     ) {
 
         const latitude =
@@ -1070,30 +1209,42 @@ function selectVehicle(
                 vehicle.gps.latitude
             );
 
+
         const longitude =
             Number(
                 vehicle.gps.longitude
             );
 
 
-        map.flyTo(
-            [
-                latitude,
-                longitude
-            ],
-            Math.max(
-                map.getZoom(),
-                16
-            ),
-            {
-                duration: 0.6
-            }
-        );
+        /*
+            Auto select lúc load:
+            không ép zoom lại vì map đã fit fleet.
+
+            Click thủ công:
+            focus vào xe.
+        */
+
+        if (openPopup) {
+
+            map.flyTo(
+                [
+                    latitude,
+                    longitude
+                ],
+                17,
+                {
+                    duration: 0.6
+                }
+            );
+
+        }
 
 
         const marker =
             vehicleMarkers.get(
-                String(vehicle.vehicle_id)
+                String(
+                    vehicle.vehicle_id
+                )
             );
 
 
@@ -1112,7 +1263,7 @@ function selectVehicle(
 
 
 /* ============================================================
-   SELECTED PANEL
+   SELECTED VEHICLE PANEL
 ============================================================ */
 
 function updateSelectedVehiclePanel(vehicle) {
@@ -1120,6 +1271,8 @@ function updateSelectedVehiclePanel(vehicle) {
     const gps =
         vehicle.gps || {};
 
+
+    /* Vehicle status */
 
     if (selectedVehicleStatus) {
 
@@ -1136,6 +1289,8 @@ function updateSelectedVehiclePanel(vehicle) {
     }
 
 
+    /* Vehicle */
+
     setText(
         selectedVehicleCode,
         vehicle.vehicle_code
@@ -1148,6 +1303,8 @@ function updateSelectedVehiclePanel(vehicle) {
     );
 
 
+    /* Driver */
+
     setText(
         selectedDriverName,
         vehicle.driver_name
@@ -1159,6 +1316,8 @@ function updateSelectedVehiclePanel(vehicle) {
         vehicle.driver_code
     );
 
+
+    /* Trip */
 
     setText(
         selectedTripCode,
@@ -1173,6 +1332,8 @@ function updateSelectedVehiclePanel(vehicle) {
         )
     );
 
+
+    /* GPS */
 
     setText(
         selectedSpeed,
@@ -1204,6 +1365,8 @@ function updateSelectedVehiclePanel(vehicle) {
     );
 
 
+    /* Route */
+
     setText(
         selectedOrigin,
         vehicle.origin_name
@@ -1216,10 +1379,14 @@ function updateSelectedVehiclePanel(vehicle) {
     );
 
 
+    /* Buttons */
+
     if (focusVehicleButton) {
 
         focusVehicleButton.disabled =
-            !isValidGPS(vehicle.gps);
+            !isValidGPS(
+                vehicle.gps
+            );
 
     }
 
@@ -1233,8 +1400,7 @@ function updateSelectedVehiclePanel(vehicle) {
 
 
     /*
-        Camera chưa có backend.
-        Giữ disabled.
+        Camera backend chưa làm.
     */
 
     if (cameraButton) {
@@ -1248,34 +1414,36 @@ function updateSelectedVehiclePanel(vehicle) {
 
 
 /* ============================================================
-   HIGHLIGHT VEHICLE
+   HIGHLIGHT SELECTED
 ============================================================ */
 
 function highlightSelectedVehicle() {
 
-    document
-        .querySelectorAll(
+    const items =
+        document.querySelectorAll(
             ".vehicle-item"
-        )
-        .forEach(
-            item => {
-
-                const isSelected =
-                    String(
-                        item.dataset.vehicleId
-                    ) ===
-                    String(
-                        selectedVehicleId
-                    );
+        );
 
 
-                item.classList.toggle(
-                    "active",
-                    isSelected
+    items.forEach(
+        item => {
+
+            const selected =
+                String(
+                    item.dataset.vehicleId
+                ) ===
+                String(
+                    selectedVehicleId
                 );
 
-            }
-        );
+
+            item.classList.toggle(
+                "active",
+                selected
+            );
+
+        }
+    );
 
 }
 
@@ -1287,7 +1455,6 @@ function highlightSelectedVehicle() {
 function clearSelectedVehicle() {
 
     selectedVehicle = null;
-
     selectedVehicleId = null;
 
 
@@ -1295,6 +1462,7 @@ function clearSelectedVehicle() {
 
         selectedVehicleStatus.textContent =
             "Chưa chọn xe";
+
 
         selectedVehicleStatus.classList.remove(
             "active"
@@ -1304,25 +1472,36 @@ function clearSelectedVehicle() {
 
 
     const fields = [
+
         selectedVehicleCode,
         selectedDeviceId,
+
         selectedDriverName,
         selectedDriverCode,
+
         selectedTripCode,
         selectedTripStatus,
+
         selectedSpeed,
         selectedSatellites,
+
         selectedLastUpdate,
+
         selectedOrigin,
         selectedDestination
+
     ];
 
 
     fields.forEach(
-        field => setText(
-            field,
-            "--"
-        )
+        field => {
+
+            setText(
+                field,
+                "--"
+            );
+
+        }
     );
 
 
@@ -1354,13 +1533,17 @@ function clearSelectedVehicle() {
 
 
 /* ============================================================
-   FOCUS VEHICLE
+   FOCUS SELECTED VEHICLE
 ============================================================ */
 
 function focusSelectedVehicle() {
 
+    if (!selectedVehicle) {
+        return;
+    }
+
+
     if (
-        !selectedVehicle ||
         !isValidGPS(
             selectedVehicle.gps
         )
@@ -1375,6 +1558,7 @@ function focusSelectedVehicle() {
         Number(
             selectedVehicle.gps.latitude
         );
+
 
     const longitude =
         Number(
@@ -1415,9 +1599,7 @@ function focusSelectedVehicle() {
    SHOW TRIP ROUTE
 ============================================================ */
 
-async function showVehicleRoute(
-    tripId
-) {
+async function showVehicleRoute(tripId) {
 
     if (!tripId) {
         return;
@@ -1430,6 +1612,7 @@ async function showVehicleRoute(
 
             showRouteButton.disabled =
                 true;
+
 
             showRouteButton.innerHTML = `
                 <i class="fa-solid fa-spinner fa-spin"></i>
@@ -1452,7 +1635,7 @@ async function showVehicleRoute(
         if (!response.ok) {
 
             throw new Error(
-                `Trip GPS HTTP ${response.status}`
+                `HTTP ${response.status}`
             );
 
         }
@@ -1462,27 +1645,10 @@ async function showVehicleRoute(
             await response.json();
 
 
-        /*
-            Backend hiện tại đã trả GPS history.
-            Hỗ trợ một số tên phổ biến để frontend
-            không phụ thuộc vào duy nhất một wrapper.
-        */
-
         const points =
             extractGPSPoints(
                 data
             );
-
-
-        if (!points.length) {
-
-            alert(
-                "Chuyến đi này chưa có dữ liệu GPS."
-            );
-
-            return;
-
-        }
 
 
         const latLngs =
@@ -1509,7 +1675,7 @@ async function showVehicleRoute(
         if (!latLngs.length) {
 
             alert(
-                "Không tìm thấy tọa độ GPS hợp lệ."
+                "Chuyến đi chưa có dữ liệu GPS hợp lệ."
             );
 
             return;
@@ -1525,20 +1691,23 @@ async function showVehicleRoute(
                 latLngs,
                 {
                     weight: 4,
-                    opacity: 0.8
+                    opacity: 0.85
                 }
-            )
-            .addTo(map);
+            );
 
 
-        routeTripId =
-            tripId;
+        routePolyline.addTo(
+            map
+        );
 
 
         map.fitBounds(
             routePolyline.getBounds(),
             {
-                padding: [45, 45]
+                padding: [
+                    40,
+                    40
+                ]
             }
         );
 
@@ -1546,7 +1715,7 @@ async function showVehicleRoute(
     catch (error) {
 
         console.error(
-            "Load trip route error:",
+            "[ROUTE ERROR]",
             error
         );
 
@@ -1587,62 +1756,28 @@ function extractGPSPoints(data) {
     }
 
 
-    /*
-        API có thể trả trực tiếp array.
-    */
-
     if (Array.isArray(data)) {
-
         return data;
-
     }
 
 
-    /*
-        Các wrapper thường dùng.
-    */
-
-    if (
-        Array.isArray(
-            data.points
-        )
-    ) {
-
+    if (Array.isArray(data.points)) {
         return data.points;
-
     }
 
 
-    if (
-        Array.isArray(
-            data.gps
-        )
-    ) {
-
+    if (Array.isArray(data.gps)) {
         return data.gps;
-
     }
 
 
-    if (
-        Array.isArray(
-            data.gps_logs
-        )
-    ) {
-
+    if (Array.isArray(data.gps_logs)) {
         return data.gps_logs;
-
     }
 
 
-    if (
-        Array.isArray(
-            data.locations
-        )
-    ) {
-
+    if (Array.isArray(data.locations)) {
         return data.locations;
-
     }
 
 
@@ -1670,8 +1805,6 @@ function clearRoute() {
 
 
     routePolyline = null;
-
-    routeTripId = null;
 
 }
 
@@ -1736,6 +1869,9 @@ function startAutoRefresh() {
     stopAutoRefresh();
 
 
+    resetCountdown();
+
+
     refreshTimer =
         setInterval(
             async () => {
@@ -1757,7 +1893,7 @@ function startAutoRefresh() {
 
 
                 if (
-                    countdownValue <= 0
+                    countdownValue < 0
                 ) {
 
                     countdownValue =
@@ -1767,12 +1903,10 @@ function startAutoRefresh() {
                 }
 
 
-                if (updateCountdown) {
-
-                    updateCountdown.textContent =
-                        countdownValue;
-
-                }
+                setText(
+                    updateCountdown,
+                    countdownValue
+                );
 
             },
             1000
@@ -1793,6 +1927,7 @@ function stopAutoRefresh() {
             refreshTimer
         );
 
+
         refreshTimer = null;
 
     }
@@ -1803,6 +1938,7 @@ function stopAutoRefresh() {
         clearInterval(
             countdownTimer
         );
+
 
         countdownTimer = null;
 
@@ -1822,34 +1958,30 @@ function resetCountdown() {
         1000;
 
 
-    if (updateCountdown) {
-
-        updateCountdown.textContent =
-            countdownValue;
-
-    }
+    setText(
+        updateCountdown,
+        countdownValue
+    );
 
 }
 
 
 /* ============================================================
-   API STATUS
+   TRACKING API STATUS
 ============================================================ */
 
-function setTrackingStatus(text) {
+function setTrackingStatus(value) {
 
-    if (trackingApiStatus) {
-
-        trackingApiStatus.textContent =
-            text;
-
-    }
+    setText(
+        trackingApiStatus,
+        value
+    );
 
 }
 
 
 /* ============================================================
-   ERROR STATE
+   ERROR UI
 ============================================================ */
 
 function showVehicleListError() {
@@ -1860,8 +1992,7 @@ function showVehicleListError() {
 
 
     /*
-        Nếu đã có dữ liệu cũ,
-        giữ nguyên dữ liệu thay vì xóa toàn bộ UI.
+        Nếu đang có dữ liệu cũ thì giữ lại.
     */
 
     if (fleetVehicles.length > 0) {
@@ -1870,13 +2001,13 @@ function showVehicleListError() {
 
 
     vehicleListElement.innerHTML = `
+
         <div class="empty-state">
 
             <i class="fa-solid fa-triangle-exclamation"></i>
 
             <p>
                 Không thể tải dữ liệu theo dõi đội xe.
-                Hãy kiểm tra kết nối tới server.
             </p>
 
         </div>
@@ -1911,6 +2042,7 @@ function isValidCoordinate(
 
     const lat =
         Number(latitude);
+
 
     const lng =
         Number(longitude);
@@ -1976,7 +2108,7 @@ function formatSpeed(value) {
 
 
 /* ============================================================
-   FORMAT DATE
+   FORMAT DATE TIME
 ============================================================ */
 
 function formatDateTime(value) {
@@ -2012,20 +2144,16 @@ function formatDateTime(value) {
 
 
 /* ============================================================
-   STATUS TRANSLATION
+   VEHICLE STATUS
 ============================================================ */
 
-function translateVehicleStatus(
-    status
-) {
+function translateVehicleStatus(status) {
 
-    const value =
+    switch (
         String(
             status || ""
-        ).toUpperCase();
-
-
-    switch (value) {
+        ).toUpperCase()
+    ) {
 
         case "AVAILABLE":
             return "Sẵn sàng";
@@ -2047,17 +2175,17 @@ function translateVehicleStatus(
 }
 
 
-function translateTripStatus(
-    status
-) {
+/* ============================================================
+   TRIP STATUS
+============================================================ */
 
-    const value =
+function translateTripStatus(status) {
+
+    switch (
         String(
             status || ""
-        ).toUpperCase();
-
-
-    switch (value) {
+        ).toUpperCase()
+    ) {
 
         case "ASSIGNED":
             return "Đã phân công";
@@ -2089,7 +2217,7 @@ function translateTripStatus(
 
 
 /* ============================================================
-   SAFE TEXT
+   SET TEXT
 ============================================================ */
 
 function setText(
@@ -2139,22 +2267,27 @@ function escapeHTML(value) {
 
 
     return String(value)
+
         .replaceAll(
             "&",
             "&amp;"
         )
+
         .replaceAll(
             "<",
             "&lt;"
         )
+
         .replaceAll(
             ">",
             "&gt;"
         )
+
         .replaceAll(
             '"',
             "&quot;"
         )
+
         .replaceAll(
             "'",
             "&#039;"
