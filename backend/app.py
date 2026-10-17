@@ -1539,6 +1539,11 @@ def get_all_trips():
             "message": "Could not read trips"
         }), 500
 
+
+@app.get("/tracking")
+def tracking_page():
+    return render_template("tracking.html")
+
 # ============================================================
 # ACCESS EVENT
 # Existing endpoint - keep for compatibility with ESP32

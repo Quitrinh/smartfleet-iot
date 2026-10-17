@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>SmartFleet - Theo dõi GPS</title>
+
+    <!-- Font Awesome -->
+    <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    >
+
+    <!-- Leaflet -->
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    >
+
+    <!-- Tracking CSS -->
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/tracking.css') }}"
+    >
+</head>
+
+<body>
+
+<div class="app-layout">
+
+    <!-- =====================================================
+         SIDEBAR
+    ====================================================== -->
+    <aside class="sidebar">
+
+        <div class="brand">
+            <div class="brand-icon">
+                <i class="fa-solid fa-truck-fast"></i>
+            </div>
+
+            <div>
+                <h1>SmartFleet</h1>
+                <span>Admin System</span>
+            </div>
+        </div>
+
+
+        <nav class="sidebar-nav">
+
+            <a href="/dashboard" class="nav-item">
+                <i class="fa-solid fa-chart-line"></i>
+                <span>Tổng quan</span>
+            </a>
+
+            <a href="/drivers" class="nav-item">
+                <i class="fa-solid fa-id-card"></i>
+                <span>Tài xế</span>
+            </a>
+
+            <a href="/vehicles" class="nav-item">
+                <i class="fa-solid fa-truck"></i>
+                <span>Phương tiện</span>
+            </a>
+
+            <a href="/trips" class="nav-item">
+                <i class="fa-solid fa-route"></i>
+                <span>Chuyến đi</span>
+            </a>
+
+            <a href="/tracking" class="nav-item active">
+                <i class="fa-solid fa-location-dot"></i>
+                <span>Theo dõi GPS</span>
+            </a>
+
+        </nav>
+
+
+        <div class="sidebar-footer">
+
+            <div class="server-status">
+                <span
+                    class="status-dot"
+                    id="serverStatusDot">
+                </span>
+
+                <div>
+                    <strong id="serverStatusText">
+                        Đang kiểm tra...
+                    </strong>
+
+                    <span>Azure Cloud</span>
+                </div>
+            </div>
+
+        </div>
+
+    </aside>
+
+
+    <!-- =====================================================
+         MAIN
+    ====================================================== -->
+    <main class="main-content">
+
+        <!-- HEADER -->
+        <header class="page-header">
+
+            <div>
+                <h2>Theo dõi đội xe</h2>
+
+                <p>
+                    Giám sát vị trí và trạng thái các phương tiện
+                    đang hoạt động
+                </p>
+            </div>
+
+
+            <div class="header-actions">
+
+                <div class="live-status">
+                    <span class="live-dot"></span>
+                    <span>Live Tracking</span>
+                </div>
+
+                <button
+                    type="button"
+                    class="refresh-button"
+                    id="refreshButton"
+                >
+                    <i class="fa-solid fa-rotate"></i>
+                    Làm mới
+                </button>
+
+            </div>
+
+        </header>
+
+
+        <!-- =================================================
+             SUMMARY
+        ================================================== -->
+        <section class="summary-grid">
+
+            <article class="summary-card">
+
+                <div class="summary-icon">
+                    <i class="fa-solid fa-truck"></i>
+                </div>
+
+                <div>
+                    <span>Xe đang chạy</span>
+                    <strong id="activeVehicleCount">0</strong>
+                </div>
+
+            </article>
+
+
+            <article class="summary-card">
+
+                <div class="summary-icon">
+                    <i class="fa-solid fa-location-crosshairs"></i>
+                </div>
+
+                <div>
+                    <span>GPS Online</span>
+                    <strong id="gpsOnlineCount">0</strong>
+                </div>
+
+            </article>
+
+
+            <article class="summary-card">
+
+                <div class="summary-icon">
+                    <i class="fa-solid fa-user"></i>
+                </div>
+
+                <div>
+                    <span>Tài xế đang chạy</span>
+                    <strong id="activeDriverCount">0</strong>
+                </div>
+
+            </article>
+
+
+            <article class="summary-card">
+
+                <div class="summary-icon">
+                    <i class="fa-solid fa-clock"></i>
+                </div>
+
+                <div>
+                    <span>Cập nhật sau</span>
+                    <strong>
+                        <span id="updateCountdown">10</span>s
+                    </strong>
+                </div>
+
+            </article>
+
+        </section>
+
+
+        <!-- =================================================
+             TRACKING WORKSPACE
+        ================================================== -->
+        <section class="tracking-workspace">
+
+            <!-- =============================================
+                 VEHICLE PANEL
+            ============================================== -->
+            <aside class="vehicle-panel">
+
+                <div class="panel-header">
+
+                    <div>
+                        <h3>Xe đang hoạt động</h3>
+                        <span id="vehicleListCount">
+                            0 phương tiện
+                        </span>
+                    </div>
+
+                </div>
+
+
+                <!-- SEARCH -->
+                <div class="vehicle-search">
+
+                    <i class="fa-solid fa-magnifying-glass"></i>
+
+                    <input
+                        type="text"
+                        id="vehicleSearch"
+                        placeholder="Tìm xe, tài xế, chuyến đi..."
+                        autocomplete="off"
+                    >
+
+                </div>
+
+
+                <!-- VEHICLE LIST -->
+                <div
+                    class="vehicle-list"
+                    id="vehicleList"
+                >
+
+                    <div class="empty-state">
+
+                        <i class="fa-solid fa-spinner fa-spin"></i>
+
+                        <p>
+                            Đang tải dữ liệu đội xe...
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </aside>
+
+
+            <!-- =============================================
+                 MAP
+            ============================================== -->
+            <div class="map-panel">
+
+                <div
+                    id="map"
+                    class="fleet-map"
+                ></div>
+
+
+                <!-- MAP INFO -->
+                <div class="map-info">
+
+                    <div>
+                        <span class="map-info-label">
+                            Hiển thị
+                        </span>
+
+                        <strong id="mapVehicleCount">
+                            0 xe
+                        </strong>
+                    </div>
+
+                    <div>
+                        <span class="map-info-label">
+                            Chế độ
+                        </span>
+
+                        <strong>
+                            Toàn bộ đội xe
+                        </strong>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- =================================================
+             SELECTED VEHICLE
+        ================================================== -->
+        <section class="selected-section">
+
+            <div class="section-title">
+
+                <div>
+                    <h3>Chi tiết phương tiện</h3>
+
+                    <p>
+                        Chọn một xe trên danh sách hoặc bản đồ
+                        để xem thông tin
+                    </p>
+                </div>
+
+                <span
+                    class="vehicle-state"
+                    id="selectedVehicleStatus"
+                >
+                    Chưa chọn xe
+                </span>
+
+            </div>
+
+
+            <div class="vehicle-detail-grid">
+
+                <!-- VEHICLE -->
+                <article class="detail-card">
+
+                    <div class="detail-card-title">
+                        <i class="fa-solid fa-truck"></i>
+                        Phương tiện
+                    </div>
+
+                    <div class="detail-value">
+                        <strong id="selectedVehicleCode">
+                            --
+                        </strong>
+
+                        <span id="selectedDeviceId">
+                            --
+                        </span>
+                    </div>
+
+                </article>
+
+
+                <!-- DRIVER -->
+                <article class="detail-card">
+
+                    <div class="detail-card-title">
+                        <i class="fa-solid fa-user"></i>
+                        Tài xế
+                    </div>
+
+                    <div class="detail-value">
+                        <strong id="selectedDriverName">
+                            --
+                        </strong>
+
+                        <span id="selectedDriverCode">
+                            --
+                        </span>
+                    </div>
+
+                </article>
+
+
+                <!-- TRIP -->
+                <article class="detail-card">
+
+                    <div class="detail-card-title">
+                        <i class="fa-solid fa-route"></i>
+                        Chuyến đi
+                    </div>
+
+                    <div class="detail-value">
+                        <strong id="selectedTripCode">
+                            --
+                        </strong>
+
+                        <span id="selectedTripStatus">
+                            --
+                        </span>
+                    </div>
+
+                </article>
+
+
+                <!-- SPEED -->
+                <article class="detail-card">
+
+                    <div class="detail-card-title">
+                        <i class="fa-solid fa-gauge-high"></i>
+                        Tốc độ
+                    </div>
+
+                    <div class="detail-value">
+                        <strong>
+                            <span id="selectedSpeed">--</span>
+                            km/h
+                        </strong>
+
+                        <span>
+                            GPS hiện tại
+                        </span>
+                    </div>
+
+                </article>
+
+
+                <!-- SATELLITES -->
+                <article class="detail-card">
+
+                    <div class="detail-card-title">
+                        <i class="fa-solid fa-satellite"></i>
+                        Vệ tinh
+                    </div>
+
+                    <div class="detail-value">
+                        <strong id="selectedSatellites">
+                            --
+                        </strong>
+
+                        <span>
+                            Satellites
+                        </span>
+                    </div>
+
+                </article>
+
+
+                <!-- LAST UPDATE -->
+                <article class="detail-card">
+
+                    <div class="detail-card-title">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                        GPS cập nhật
+                    </div>
+
+                    <div class="detail-value">
+                        <strong id="selectedLastUpdate">
+                            --
+                        </strong>
+
+                        <span id="selectedGpsStatus">
+                            Chưa có dữ liệu
+                        </span>
+                    </div>
+
+                </article>
+
+            </div>
+
+
+            <!-- ROUTE -->
+            <div class="route-information">
+
+                <div class="route-point">
+
+                    <div class="route-icon start">
+                        <i class="fa-solid fa-location-dot"></i>
+                    </div>
+
+                    <div>
+                        <span>Điểm bắt đầu</span>
+
+                        <strong id="selectedOrigin">
+                            --
+                        </strong>
+                    </div>
+
+                </div>
+
+
+                <div class="route-line"></div>
+
+
+                <div class="route-point">
+
+                    <div class="route-icon destination">
+                        <i class="fa-solid fa-flag-checkered"></i>
+                    </div>
+
+                    <div>
+                        <span>Điểm kết thúc</span>
+
+                        <strong id="selectedDestination">
+                            --
+                        </strong>
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- ACTIONS -->
+            <div class="vehicle-actions">
+
+                <button
+                    type="button"
+                    class="action-button primary"
+                    id="focusVehicleButton"
+                    disabled
+                >
+                    <i class="fa-solid fa-location-crosshairs"></i>
+                    Theo dõi riêng xe
+                </button>
+
+
+                <button
+                    type="button"
+                    class="action-button"
+                    id="showRouteButton"
+                    disabled
+                >
+                    <i class="fa-solid fa-route"></i>
+                    Xem hành trình
+                </button>
+
+
+                <button
+                    type="button"
+                    class="action-button camera-button"
+                    id="cameraButton"
+                    disabled
+                    title="Chức năng camera sẽ được tích hợp sau"
+                >
+                    <i class="fa-solid fa-video"></i>
+                    Camera tài xế
+                </button>
+
+            </div>
+
+        </section>
+
+
+        <!-- =================================================
+             SYSTEM INFO
+        ================================================== -->
+        <section class="system-section">
+
+            <div class="system-item">
+
+                <i class="fa-solid fa-cloud"></i>
+
+                <div>
+                    <span>Backend</span>
+                    <strong>Azure App Service</strong>
+                </div>
+
+            </div>
+
+
+            <div class="system-item">
+
+                <i class="fa-solid fa-database"></i>
+
+                <div>
+                    <span>Database</span>
+                    <strong>PostgreSQL</strong>
+                </div>
+
+            </div>
+
+
+            <div class="system-item">
+
+                <i class="fa-solid fa-satellite-dish"></i>
+
+                <div>
+                    <span>Tracking API</span>
+                    <strong id="trackingApiStatus">
+                        Đang kiểm tra...
+                    </strong>
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+</div>
+
+
+<!-- Leaflet JS -->
+<script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+</script>
+
+<!-- Tracking JS -->
+<script
+    src="{{ url_for('static', filename='js/tracking.js') }}">
+</script>
+
+</body>
+</html>
