@@ -1335,6 +1335,322 @@ def save_gps_location():
             "message": "Could not save GPS location"
         }), 500
 
+# ============================================================
+# GET LATEST VEHICLE LOCATION
+# ============================================================
+
+@app.get("/api/vehicles/<device_id>/location")
+def get_vehicle_location(device_id):
+
+    device_id = str(device_id).strip()
+
+    if not device_id:
+        return jsonify({
+            "status": "error",
+            "reason": "INVALID_DEVICE_ID"
+        }), 400
+
+    try:
+
+        with get_db_connection() as conn:
+
+            with conn.cursor() as cur:
+
+                # ------------------------------------------------
+                # FIND VEHICLE
+                # ------------------------------------------------
+
+                cur.execute(
+                    """
+                    SELECT
+                        id,
+                        vehicle_code,
+                        device_id,
+                        status
+                    FROM vehicles
+                    WHERE device_id = %s
+                    LIMIT 1
+                    """,
+                    (device_id,)
+                )
+
+                vehicle = cur.fetchone()
+
+                if vehicle is None:
+                    return jsonify({
+                        "status": "ok",
+                        "found": False,
+                        "reason": "VEHICLE_NOT_FOUND"
+                    }), 200
+
+
+                # ------------------------------------------------
+                # GET LATEST GPS
+                # ------------------------------------------------
+
+                cur.execute(
+                    """
+                    SELECT
+                        g.id,
+                        g.trip_id,
+                        g.latitude,
+                        g.longitude,
+                        g.speed_kmh,
+                        g.satellites,
+                        g.recorded_at,
+
+                        t.trip_code,
+                        t.status AS trip_status,
+                        t.origin_name,
+                        t.destination_name
+
+                    FROM gps_logs g
+
+                    JOIN trips t
+                        ON t.id = g.trip_id
+
+                    WHERE g.vehicle_id = %s
+
+                    ORDER BY g.recorded_at DESC, g.id DESC
+
+                    LIMIT 1
+                    """,
+                    (vehicle["id"],)
+                )
+
+                gps = cur.fetchone()
+
+
+        if gps is None:
+
+            return jsonify({
+                "status": "ok",
+                "found": False,
+
+                "vehicle": {
+                    "id": vehicle["id"],
+                    "vehicle_code": vehicle["vehicle_code"],
+                    "device_id": vehicle["device_id"],
+                    "status": vehicle["status"]
+                },
+
+                "reason": "NO_GPS_DATA"
+
+            }), 200
+
+
+        return jsonify({
+
+            "status": "ok",
+            "found": True,
+
+            "vehicle": {
+                "id": vehicle["id"],
+                "vehicle_code": vehicle["vehicle_code"],
+                "device_id": vehicle["device_id"],
+                "status": vehicle["status"]
+            },
+
+            "trip": {
+                "id": gps["trip_id"],
+                "trip_code": gps["trip_code"],
+                "status": gps["trip_status"],
+                "origin_name": gps["origin_name"],
+                "destination_name": gps["destination_name"]
+            },
+
+            "location": {
+                "gps_log_id": gps["id"],
+                "latitude": gps["latitude"],
+                "longitude": gps["longitude"],
+                "speed_kmh": gps["speed_kmh"],
+                "satellites": gps["satellites"],
+                "recorded_at":
+                    gps["recorded_at"].isoformat()
+                    if gps["recorded_at"]
+                    else None
+            }
+
+        }), 200
+
+
+    except Exception as e:
+
+        print(
+            "[GET VEHICLE LOCATION ERROR]",
+            repr(e)
+        )
+
+        return jsonify({
+            "status": "error",
+            "reason": "SERVER_ERROR",
+            "message": "Could not read vehicle location"
+        }), 500
+
+# ============================================================
+# GET TRIP GPS HISTORY
+# ============================================================
+
+@app.get("/api/trips/<int:trip_id>/gps")
+def get_trip_gps_history(trip_id):
+
+    if trip_id <= 0:
+        return jsonify({
+            "status": "error",
+            "reason": "INVALID_TRIP_ID"
+        }), 400
+
+    try:
+
+        with get_db_connection() as conn:
+
+            with conn.cursor() as cur:
+
+                # ------------------------------------------------
+                # FIND TRIP
+                # ------------------------------------------------
+
+                cur.execute(
+                    """
+                    SELECT
+                        t.id,
+                        t.trip_code,
+                        t.vehicle_id,
+                        t.origin_name,
+                        t.destination_name,
+                        t.status,
+                        t.started_at,
+
+                        v.vehicle_code,
+                        v.device_id,
+                        v.status AS vehicle_status
+
+                    FROM trips t
+
+                    JOIN vehicles v
+                        ON v.id = t.vehicle_id
+
+                    WHERE t.id = %s
+
+                    LIMIT 1
+                    """,
+                    (trip_id,)
+                )
+
+                trip = cur.fetchone()
+
+
+                if trip is None:
+                    return jsonify({
+                        "status": "ok",
+                        "found": False,
+                        "reason": "TRIP_NOT_FOUND"
+                    }), 200
+
+
+                # ------------------------------------------------
+                # GET GPS POINTS
+                # ------------------------------------------------
+
+                cur.execute(
+                    """
+                    SELECT
+                        id,
+                        latitude,
+                        longitude,
+                        speed_kmh,
+                        satellites,
+                        recorded_at
+
+                    FROM gps_logs
+
+                    WHERE trip_id = %s
+
+                    ORDER BY recorded_at ASC, id ASC
+                    """,
+                    (trip_id,)
+                )
+
+                rows = cur.fetchall()
+
+
+        points = []
+
+        for row in rows:
+
+            points.append({
+                "gps_log_id": row["id"],
+                "latitude": row["latitude"],
+                "longitude": row["longitude"],
+                "speed_kmh": row["speed_kmh"],
+                "satellites": row["satellites"],
+                "recorded_at":
+                    row["recorded_at"].isoformat()
+                    if row["recorded_at"]
+                    else None
+            })
+
+
+        return jsonify({
+
+            "status": "ok",
+            "found": True,
+
+            "trip": {
+                "id": trip["id"],
+                "trip_code": trip["trip_code"],
+                "status": trip["status"],
+                "origin_name": trip["origin_name"],
+                "destination_name": trip["destination_name"],
+                "started_at":
+                    trip["started_at"].isoformat()
+                    if trip["started_at"]
+                    else None
+            },
+
+            "vehicle": {
+                "vehicle_code": trip["vehicle_code"],
+                "device_id": trip["device_id"],
+                "status": trip["vehicle_status"]
+            },
+
+            "point_count": len(points),
+
+            "points": points
+
+        }), 200
+
+
+    except Exception as e:
+
+        print(
+            "[GET TRIP GPS ERROR]",
+            repr(e)
+        )
+
+        return jsonify({
+            "status": "error",
+            "reason": "SERVER_ERROR",
+            "message": "Could not read trip GPS history"
+        }), 500
+
+@app.post("/api/gps")
+def save_gps_location():
+    ...
+    # code hiện tại
+
+
+@app.get("/api/vehicles/<device_id>/location")
+def get_vehicle_location(device_id):
+    ...
+    # code mới
+
+
+@app.get("/api/trips/<int:trip_id>/gps")
+def get_trip_gps_history(trip_id):
+    ...
+    # code mới
+
 
 # ============================================================
 # LOCAL RUN
