@@ -956,13 +956,21 @@ def receive_gps():
             if satellites is not None:
                 satellites = int(satellites)
 
-        except (ValueError, TypeError):
+        except Exception as e:
+
+            print("================================")
+            print("GPS API ERROR")
+            print("================================")
+            print(type(e).__name__)
+            print(str(e))
+            print("================================")
 
             return jsonify({
                 "status": "error",
                 "saved": False,
-                "reason": "INVALID_DATA_TYPE"
-            }), 400
+                "reason": "SERVER_ERROR",
+                "debug": str(e)
+            }), 500
 
 
         # ====================================================
