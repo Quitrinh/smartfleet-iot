@@ -52,6 +52,29 @@ def dashboard():
     return render_template("dashboard.html")
 
 # ============================================================
+# WEB - VEHICLES
+# ============================================================
+
+@app.get("/vehicles")
+def vehicles_page():
+    return render_template("vehicles.html")
+
+# ============================================================
+# WEB - DRIVERS
+# ============================================================
+
+@app.get("/drivers")
+def drivers_page():
+    return render_template("drivers.html")
+
+# ============================================================
+# WEB - TRIPS
+# ============================================================
+
+@app.get("/trips")
+def trips_page():
+    return render_template("trips.html")
+# ============================================================
 # HEALTH
 # ============================================================
 
@@ -862,6 +885,128 @@ def start_trip():
         }), 500
 
 
+# ============================================================
+# GET ALL TRIPS
+# ============================================================
+
+@app.get("/api/trips")
+def get_all_trips():
+
+    try:
+
+        with get_db_connection() as conn:
+
+            with conn.cursor() as cur:
+
+                cur.execute(
+                    """
+                    SELECT
+                        t.id,
+                        t.trip_code,
+                        t.status,
+                        t.origin_name,
+                        t.destination_name,
+                        t.started_at,
+
+                        v.id AS vehicle_id,
+                        v.vehicle_code,
+                        v.device_id,
+                        v.status AS vehicle_status,
+
+                        dp.id AS driver_id,
+                        dp.driver_code,
+
+                        u.full_name AS driver_name,
+
+                        COUNT(g.id) AS gps_count
+
+                    FROM trips t
+
+                    JOIN vehicles v
+                        ON v.id = t.vehicle_id
+
+                    JOIN driver_profiles dp
+                        ON dp.id = t.driver_id
+
+                    JOIN users u
+                        ON u.id = dp.user_id
+
+                    LEFT JOIN gps_logs g
+                        ON g.trip_id = t.id
+
+                    GROUP BY
+                        t.id,
+                        t.trip_code,
+                        t.status,
+                        t.origin_name,
+                        t.destination_name,
+                        t.started_at,
+
+                        v.id,
+                        v.vehicle_code,
+                        v.device_id,
+                        v.status,
+
+                        dp.id,
+                        dp.driver_code,
+
+                        u.full_name
+
+                    ORDER BY t.id DESC
+                    """
+                )
+
+                rows = cur.fetchall()
+
+        trips = []
+
+        for row in rows:
+
+            trips.append({
+                "id": row["id"],
+                "trip_code": row["trip_code"],
+                "status": row["status"],
+
+                "origin_name": row["origin_name"],
+                "destination_name": row["destination_name"],
+
+                "started_at":
+                    row["started_at"].isoformat()
+                    if row["started_at"]
+                    else None,
+
+                "vehicle_id": row["vehicle_id"],
+                "vehicle_code": row["vehicle_code"],
+                "device_id": row["device_id"],
+                "vehicle_status": row["vehicle_status"],
+
+                "driver_id": row["driver_id"],
+                "driver_code": row["driver_code"],
+                "driver_name": row["driver_name"],
+
+                "gps_count": row["gps_count"]
+            })
+
+        return jsonify({
+            "status": "ok",
+            "count": len(trips),
+            "trips": trips
+        }), 200
+
+
+    except Exception as e:
+
+        print(
+            "[GET ALL TRIPS ERROR]",
+            repr(e)
+        )
+
+        return jsonify({
+            "status": "error",
+            "reason": "SERVER_ERROR",
+            "message": "Could not read trips"
+        }), 500
+    
 # ============================================================
 # ACCESS EVENT
 # Existing endpoint - keep for compatibility with ESP32
