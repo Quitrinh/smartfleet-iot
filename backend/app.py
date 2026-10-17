@@ -748,6 +748,142 @@ def get_all_vehicles():
         }), 500
 
 # ============================================================
+# GET ACTIVE FLEET TRACKING
+# Latest GPS position of every active trip
+# ============================================================
+
+@app.get("/api/tracking/active")
+def get_active_fleet_tracking():
+
+    try:
+
+        with get_db_connection() as conn:
+
+            with conn.cursor() as cur:
+
+                cur.execute(
+                    """
+                    SELECT
+                        v.id AS vehicle_id,
+                        v.vehicle_code,
+                        v.device_id,
+                        v.status AS vehicle_status,
+
+                        t.id AS trip_id,
+                        t.trip_code,
+                        t.status AS trip_status,
+                        t.origin_name,
+                        t.destination_name,
+                        t.started_at,
+
+                        d.id AS driver_id,
+                        d.driver_code,
+                        u.full_name AS driver_name,
+
+                        gps.id AS gps_log_id,
+                        gps.latitude,
+                        gps.longitude,
+                        gps.speed_kmh,
+                        gps.satellites,
+                        gps.recorded_at AS last_gps_at
+
+                    FROM trips t
+
+                    JOIN vehicles v
+                        ON v.id = t.vehicle_id
+
+                    JOIN driver_profiles d
+                        ON d.id = t.driver_id
+
+                    JOIN users u
+                        ON u.id = d.user_id
+
+                    LEFT JOIN LATERAL (
+                        SELECT
+                            g.id,
+                            g.latitude,
+                            g.longitude,
+                            g.speed_kmh,
+                            g.satellites,
+                            g.recorded_at
+                        FROM gps_logs g
+                        WHERE g.trip_id = t.id
+                          AND g.vehicle_id = v.id
+                        ORDER BY g.recorded_at DESC
+                        LIMIT 1
+                    ) gps ON TRUE
+
+                    WHERE t.status = 'IN_PROGRESS'
+
+                    ORDER BY
+                        gps.recorded_at DESC NULLS LAST,
+                        v.id ASC
+                    """
+                )
+
+                rows = cur.fetchall()
+
+        vehicles = []
+
+        for row in rows:
+
+            vehicles.append({
+                "vehicle_id": row["vehicle_id"],
+                "vehicle_code": row["vehicle_code"],
+                "device_id": row["device_id"],
+                "vehicle_status": row["vehicle_status"],
+
+                "driver_id": row["driver_id"],
+                "driver_code": row["driver_code"],
+                "driver_name": row["driver_name"],
+
+                "trip_id": row["trip_id"],
+                "trip_code": row["trip_code"],
+                "trip_status": row["trip_status"],
+                "origin_name": row["origin_name"],
+                "destination_name": row["destination_name"],
+
+                "started_at":
+                    row["started_at"].isoformat()
+                    if row["started_at"]
+                    else None,
+
+                "gps": {
+                    "gps_log_id": row["gps_log_id"],
+                    "latitude": row["latitude"],
+                    "longitude": row["longitude"],
+                    "speed_kmh": row["speed_kmh"],
+                    "satellites": row["satellites"],
+
+                    "last_gps_at":
+                        row["last_gps_at"].isoformat()
+                        if row["last_gps_at"]
+                        else None
+                },
+
+                "gps_available":
+                    row["gps_log_id"] is not None
+            })
+
+        return jsonify({
+            "status": "ok",
+            "count": len(vehicles),
+            "vehicles": vehicles
+        }), 200
+
+    except Exception as e:
+
+        print(
+            "[ACTIVE FLEET TRACKING ERROR]",
+            repr(e)
+        )
+
+        return jsonify({
+            "status": "error",
+            "message": "Could not load active fleet tracking."
+        }), 500
+    
+# ============================================================
 # COMPLETE TRIP
 # ============================================================
 
