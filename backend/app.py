@@ -534,7 +534,326 @@ def auth_vehicle():
             "message": "Vehicle authentication failed"
         }), 500
 
+# ============================================================
+# START TRIP
+#
+# ESP32 / Postman sends:
+#
+# {
+#     "device_id": "TRUCK_001",
+#     "trip_id": 1
+# }
+#
+# ============================================================
 
+@app.post("/api/trips/start")
+def start_trip():
+
+    data = request.get_json(silent=True) or {}
+
+    device_id = str(data.get("device_id", "")).strip()
+
+    try:
+        trip_id = int(data.get("trip_id"))
+    except (TypeError, ValueError):
+        trip_id = 0
+
+    # --------------------------------------------------------
+    # 1. VALIDATE REQUEST
+    # --------------------------------------------------------
+
+    if not device_id or trip_id <= 0:
+
+        return jsonify({
+            "status": "error",
+            "started": False,
+            "reason": "MISSING_FIELDS",
+            "message": "device_id and trip_id are required"
+        }), 400
+
+    try:
+
+        with get_db_connection() as conn:
+
+            with conn.cursor() as cur:
+
+                # ====================================================
+                # 2. FIND VEHICLE
+                # ====================================================
+
+                cur.execute(
+                    """
+                    SELECT
+                        id,
+                        vehicle_code,
+                        device_id,
+                        status
+                    FROM vehicles
+                    WHERE device_id = %s
+                    FOR UPDATE
+                    """,
+                    (device_id,)
+                )
+
+                vehicle = cur.fetchone()
+
+                if vehicle is None:
+
+                    return jsonify({
+                        "status": "ok",
+                        "started": False,
+                        "reason": "VEHICLE_NOT_FOUND"
+                    }), 200
+
+                if vehicle["status"] == "DISABLED":
+
+                    return jsonify({
+                        "status": "ok",
+                        "started": False,
+                        "reason": "VEHICLE_DISABLED"
+                    }), 200
+
+                # ====================================================
+                # 3. FIND TRIP
+                #
+                # IMPORTANT:
+                # Trip must belong to the vehicle that sent request.
+                # ====================================================
+
+                cur.execute(
+                    """
+                    SELECT
+                        t.id,
+                        t.trip_code,
+                        t.driver_id,
+                        t.vehicle_id,
+                        t.origin_name,
+                        t.destination_name,
+                        t.status,
+                        t.started_at,
+
+                        dp.driver_code,
+
+                        u.full_name
+
+                    FROM trips t
+
+                    JOIN driver_profiles dp
+                        ON dp.id = t.driver_id
+
+                    JOIN users u
+                        ON u.id = dp.user_id
+
+                    WHERE t.id = %s
+                      AND t.vehicle_id = %s
+
+                    FOR UPDATE
+                    """,
+                    (
+                        trip_id,
+                        vehicle["id"]
+                    )
+                )
+
+                trip = cur.fetchone()
+
+                if trip is None:
+
+                    return jsonify({
+                        "status": "ok",
+                        "started": False,
+                        "reason": "TRIP_NOT_FOUND"
+                    }), 200
+
+                # ====================================================
+                # 4. HANDLE TRIP STATUS
+                # ====================================================
+
+                # Idempotent behavior:
+                # if already started, do not start it a second time.
+                if trip["status"] == "IN_PROGRESS":
+
+                    return jsonify({
+                        "status": "ok",
+                        "started": True,
+                        "already_started": True,
+
+                        "trip": {
+                            "id": trip["id"],
+                            "trip_code": trip["trip_code"],
+                            "status": trip["status"],
+                            "origin_name": trip["origin_name"],
+                            "destination_name":
+                                trip["destination_name"],
+                            "started_at":
+                                trip["started_at"].isoformat()
+                                if trip["started_at"]
+                                else None
+                        },
+
+                        "driver": {
+                            "driver_code": trip["driver_code"],
+                            "full_name": trip["full_name"]
+                        },
+
+                        "vehicle": {
+                            "id": vehicle["id"],
+                            "vehicle_code":
+                                vehicle["vehicle_code"],
+                            "device_id":
+                                vehicle["device_id"],
+                            "status":
+                                vehicle["status"]
+                        }
+
+                    }), 200
+
+                # Only ASSIGNED or READY can start.
+                if trip["status"] not in (
+                    "ASSIGNED",
+                    "READY"
+                ):
+
+                    return jsonify({
+                        "status": "ok",
+                        "started": False,
+                        "reason": "INVALID_TRIP_STATUS",
+                        "trip_status": trip["status"]
+                    }), 200
+
+                # Vehicle must be available before starting.
+                if vehicle["status"] != "AVAILABLE":
+
+                    return jsonify({
+                        "status": "ok",
+                        "started": False,
+                        "reason": "VEHICLE_NOT_AVAILABLE",
+                        "vehicle_status": vehicle["status"]
+                    }), 200
+
+                # ====================================================
+                # 5. UPDATE TRIP
+                #
+                # ASSIGNED / READY
+                #       ↓
+                # IN_PROGRESS
+                # ====================================================
+
+                cur.execute(
+                    """
+                    UPDATE trips
+                    SET
+                        status = 'IN_PROGRESS',
+                        started_at = CURRENT_TIMESTAMP
+                    WHERE id = %s
+                    RETURNING
+                        id,
+                        trip_code,
+                        status,
+                        started_at
+                    """,
+                    (trip["id"],)
+                )
+
+                updated_trip = cur.fetchone()
+
+                # ====================================================
+                # 6. UPDATE VEHICLE
+                #
+                # AVAILABLE
+                #     ↓
+                # IN_TRIP
+                # ====================================================
+
+                cur.execute(
+                    """
+                    UPDATE vehicles
+                    SET status = 'IN_TRIP'
+                    WHERE id = %s
+                    RETURNING
+                        id,
+                        vehicle_code,
+                        device_id,
+                        status
+                    """,
+                    (vehicle["id"],)
+                )
+
+                updated_vehicle = cur.fetchone()
+
+                # ====================================================
+                # 7. WRITE ACCESS LOG
+                # ====================================================
+
+                write_access_log(
+                    cur=cur,
+                    driver_id=trip["driver_id"],
+                    vehicle_id=vehicle["id"],
+                    trip_id=trip["id"],
+                    rfid_uid=None,
+                    event="TRIP_STARTED",
+                    granted=True,
+                    reason="STARTED"
+                )
+
+                # Connection context commits transaction on success.
+
+                # ====================================================
+                # 8. RESPONSE
+                # ====================================================
+
+                return jsonify({
+
+                    "status": "ok",
+                    "started": True,
+                    "already_started": False,
+
+                    "trip": {
+                        "id": updated_trip["id"],
+                        "trip_code":
+                            updated_trip["trip_code"],
+                        "status":
+                            updated_trip["status"],
+                        "origin_name":
+                            trip["origin_name"],
+                        "destination_name":
+                            trip["destination_name"],
+                        "started_at":
+                            updated_trip["started_at"].isoformat()
+                            if updated_trip["started_at"]
+                            else None
+                    },
+
+                    "driver": {
+                        "driver_code":
+                            trip["driver_code"],
+                        "full_name":
+                            trip["full_name"]
+                    },
+
+                    "vehicle": {
+                        "id":
+                            updated_vehicle["id"],
+                        "vehicle_code":
+                            updated_vehicle["vehicle_code"],
+                        "device_id":
+                            updated_vehicle["device_id"],
+                        "status":
+                            updated_vehicle["status"]
+                    }
+
+                }), 200
+
+    except Exception as e:
+
+        print("START TRIP DATABASE ERROR:", e)
+
+        return jsonify({
+            "status": "error",
+            "started": False,
+            "reason": "SERVER_ERROR",
+            "message": "Could not start trip"
+        }), 500
 # ============================================================
 # ACCESS EVENT
 # Existing endpoint - keep for compatibility with ESP32
