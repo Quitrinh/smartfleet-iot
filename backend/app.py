@@ -68,6 +68,88 @@ def drivers_page():
     return render_template("drivers.html")
 
 # ============================================================
+# GET ALL DRIVERS
+# ============================================================
+
+@app.get("/api/drivers")
+def get_all_drivers():
+
+    try:
+
+        with get_db_connection() as conn:
+
+            with conn.cursor() as cur:
+
+                cur.execute(
+                    """
+                    SELECT
+                        dp.id,
+                        dp.driver_code,
+                        dp.status,
+
+                        u.full_name,
+
+                        t.id AS trip_id,
+                        t.trip_code,
+                        t.status AS trip_status,
+
+                        v.id AS vehicle_id,
+                        v.vehicle_code,
+                        v.device_id
+
+                    FROM driver_profiles dp
+
+                    JOIN users u
+                        ON u.id = dp.user_id
+
+                    LEFT JOIN trips t
+                        ON t.driver_id = dp.id
+                        AND t.status = 'IN_PROGRESS'
+
+                    LEFT JOIN vehicles v
+                        ON v.id = t.vehicle_id
+
+                    ORDER BY dp.id ASC
+                    """
+                )
+
+                rows = cur.fetchall()
+
+        drivers = []
+
+        for row in rows:
+
+            drivers.append({
+                "id": row["id"],
+                "driver_code": row["driver_code"],
+                "full_name": row["full_name"],
+                "status": row["status"],
+
+                "trip_id": row["trip_id"],
+                "trip_code": row["trip_code"],
+                "trip_status": row["trip_status"],
+
+                "vehicle_id": row["vehicle_id"],
+                "vehicle_code": row["vehicle_code"],
+                "device_id": row["device_id"]
+            })
+
+        return jsonify({
+            "status": "ok",
+            "count": len(drivers),
+            "drivers": drivers
+        }), 200
+
+    except Exception as e:
+
+        print("[GET ALL DRIVERS ERROR]", repr(e))
+
+        return jsonify({
+            "status": "error",
+            "reason": "SERVER_ERROR",
+            "message": "Could not read drivers"
+        }), 500
+# ============================================================
 # WEB - TRIPS
 # ============================================================
 
