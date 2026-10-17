@@ -744,6 +744,219 @@ def get_all_vehicles():
             "reason": "SERVER_ERROR",
             "message": "Could not read vehicles"
         }), 500
+
+# ============================================================
+# COMPLETE TRIP
+# ============================================================
+
+@app.post("/api/trips/<int:trip_id>/complete")
+def complete_trip(trip_id):
+
+    try:
+
+        with get_db_connection() as conn:
+
+            with conn.cursor() as cur:
+
+                # ====================================================
+                # 1. FIND + LOCK TRIP
+                # ====================================================
+
+                cur.execute(
+                    """
+                    SELECT
+                        id,
+                        trip_code,
+                        driver_id,
+                        vehicle_id,
+                        status,
+                        started_at,
+                        completed_at
+                    FROM trips
+                    WHERE id = %s
+                    FOR UPDATE
+                    """,
+                    (trip_id,)
+                )
+
+                trip = cur.fetchone()
+
+                if trip is None:
+                    return jsonify({
+                        "status": "ok",
+                        "completed": False,
+                        "reason": "TRIP_NOT_FOUND"
+                    }), 200
+
+                # ====================================================
+                # 2. IDEMPOTENT - ALREADY COMPLETED
+                # ====================================================
+
+                if trip["status"] == "COMPLETED":
+
+                    return jsonify({
+                        "status": "ok",
+                        "completed": True,
+                        "already_completed": True,
+
+                        "trip": {
+                            "id": trip["id"],
+                            "trip_code": trip["trip_code"],
+                            "status": trip["status"],
+                            "completed_at":
+                                trip["completed_at"].isoformat()
+                                if trip["completed_at"]
+                                else None
+                        }
+                    }), 200
+
+                # ====================================================
+                # 3. TRIP MUST BE IN_PROGRESS
+                # ====================================================
+
+                if trip["status"] != "IN_PROGRESS":
+
+                    return jsonify({
+                        "status": "ok",
+                        "completed": False,
+                        "reason": "INVALID_TRIP_STATUS",
+                        "trip_status": trip["status"]
+                    }), 200
+
+                # ====================================================
+                # 4. FIND + LOCK VEHICLE
+                # ====================================================
+
+                cur.execute(
+                    """
+                    SELECT
+                        id,
+                        vehicle_code,
+                        device_id,
+                        status
+                    FROM vehicles
+                    WHERE id = %s
+                    FOR UPDATE
+                    """,
+                    (trip["vehicle_id"],)
+                )
+
+                vehicle = cur.fetchone()
+
+                if vehicle is None:
+
+                    return jsonify({
+                        "status": "ok",
+                        "completed": False,
+                        "reason": "VEHICLE_NOT_FOUND"
+                    }), 200
+
+                # ====================================================
+                # 5. COMPLETE TRIP
+                # ====================================================
+
+                cur.execute(
+                    """
+                    UPDATE trips
+                    SET
+                        status = 'COMPLETED',
+                        completed_at = CURRENT_TIMESTAMP
+                    WHERE id = %s
+                    RETURNING
+                        id,
+                        trip_code,
+                        status,
+                        started_at,
+                        completed_at
+                    """,
+                    (trip_id,)
+                )
+
+                updated_trip = cur.fetchone()
+
+                # ====================================================
+                # 6. RELEASE VEHICLE
+                # ====================================================
+
+                cur.execute(
+                    """
+                    UPDATE vehicles
+                    SET status = 'AVAILABLE'
+                    WHERE id = %s
+                    RETURNING
+                        id,
+                        vehicle_code,
+                        device_id,
+                        status
+                    """,
+                    (trip["vehicle_id"],)
+                )
+
+                updated_vehicle = cur.fetchone()
+
+                # ====================================================
+                # 7. WRITE ACCESS LOG
+                # ====================================================
+
+                write_access_log(
+                    cur=cur,
+                    driver_id=trip["driver_id"],
+                    vehicle_id=trip["vehicle_id"],
+                    trip_id=trip["id"],
+                    rfid_uid=None,
+                    event="TRIP_COMPLETED",
+                    granted=True,
+                    reason="COMPLETED"
+                )
+
+                # ====================================================
+                # 8. RESPONSE
+                # ====================================================
+
+                return jsonify({
+                    "status": "ok",
+                    "completed": True,
+                    "already_completed": False,
+
+                    "trip": {
+                        "id": updated_trip["id"],
+                        "trip_code": updated_trip["trip_code"],
+                        "status": updated_trip["status"],
+
+                        "started_at":
+                            updated_trip["started_at"].isoformat()
+                            if updated_trip["started_at"]
+                            else None,
+
+                        "completed_at":
+                            updated_trip["completed_at"].isoformat()
+                            if updated_trip["completed_at"]
+                            else None
+                    },
+
+                    "vehicle": {
+                        "id": updated_vehicle["id"],
+                        "vehicle_code":
+                            updated_vehicle["vehicle_code"],
+                        "device_id":
+                            updated_vehicle["device_id"],
+                        "status":
+                            updated_vehicle["status"]
+                    }
+
+                }), 200
+
+    except Exception as e:
+
+        print("[COMPLETE TRIP ERROR]", repr(e))
+
+        return jsonify({
+            "status": "error",
+            "completed": False,
+            "reason": "SERVER_ERROR",
+            "message": "Could not complete trip"
+        }), 500
+    
 # ============================================================
 # START TRIP
 #
