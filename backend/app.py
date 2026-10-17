@@ -1634,23 +1634,6 @@ def get_trip_gps_history(trip_id):
             "message": "Could not read trip GPS history"
         }), 500
 
-@app.post("/api/gps")
-def save_gps_location():
-    ...
-    # code hiện tại
-
-
-@app.get("/api/vehicles/<device_id>/location")
-def get_vehicle_location(device_id):
-    ...
-    # code mới
-
-
-@app.get("/api/trips/<int:trip_id>/gps")
-def get_trip_gps_history(trip_id):
-    ...
-    # code mới
-
 
 # ============================================================
 # LOCAL RUN
