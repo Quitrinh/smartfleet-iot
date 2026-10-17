@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Chuyến đi | SmartFleet</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/trips.css') }}"
+    >
+</head>
+
+<body>
+
+<aside class="sidebar">
+
+    <div class="brand">
+        <div class="brand-logo">SF</div>
+
+        <div>
+            <strong>SmartFleet</strong>
+            <span>Fleet Management</span>
+        </div>
+    </div>
+
+    <nav class="navigation">
+
+        <a href="/dashboard">
+            Dashboard
+        </a>
+
+        <a href="/vehicles">
+            Phương tiện
+        </a>
+
+        <a href="/drivers">
+            Tài xế
+        </a>
+
+        <a
+            href="/trips"
+            class="active"
+        >
+            Chuyến đi
+        </a>
+
+        <a href="/dashboard">
+            Theo dõi GPS
+        </a>
+
+        <a href="/alerts">
+            Cảnh báo
+        </a>
+
+    </nav>
+
+    <div class="sidebar-bottom">
+
+        <div class="user-info">
+
+            <div class="avatar">
+                A
+            </div>
+
+            <div>
+                <strong>Administrator</strong>
+                <span>Quản trị viên</span>
+            </div>
+
+        </div>
+
+        <a
+            href="/logout"
+            class="logout"
+        >
+            Đăng xuất
+        </a>
+
+    </div>
+
+</aside>
+
+
+<main class="main-content">
+
+    <!-- HEADER -->
+
+    <header class="page-header">
+
+        <div>
+            <h1>Chuyến đi</h1>
+
+            <p>
+                Quản lý và theo dõi các chuyến đi SmartFleet
+            </p>
+        </div>
+
+        <button
+            id="refreshButton"
+            type="button"
+        >
+            Cập nhật
+        </button>
+
+    </header>
+
+
+    <!-- SUMMARY -->
+
+    <section class="summary-grid">
+
+        <div class="summary-card">
+            <span>Tổng chuyến đi</span>
+            <strong id="totalTrips">--</strong>
+        </div>
+
+        <div class="summary-card">
+            <span>Đang thực hiện</span>
+            <strong id="activeTrips">--</strong>
+        </div>
+
+        <div class="summary-card">
+            <span>Đã hoàn thành</span>
+            <strong id="completedTrips">--</strong>
+        </div>
+
+        <div class="summary-card">
+            <span>Đã hủy</span>
+            <strong id="cancelledTrips">--</strong>
+        </div>
+
+    </section>
+
+
+    <!-- TABLE -->
+
+    <section class="table-panel">
+
+        <div class="table-header">
+
+            <div>
+                <h2>Danh sách chuyến đi</h2>
+
+                <p id="tableDescription">
+                    Đang tải dữ liệu...
+                </p>
+            </div>
+
+            <div class="search-box">
+
+                <input
+                    id="searchInput"
+                    type="search"
+                    placeholder="Tìm chuyến đi..."
+                >
+
+            </div>
+
+        </div>
+
+
+        <div class="table-container">
+
+            <table>
+
+                <thead>
+
+                    <tr>
+                        <th>Mã chuyến</th>
+                        <th>Phương tiện</th>
+                        <th>Tài xế</th>
+                        <th>Trạng thái</th>
+                        <th>Bắt đầu</th>
+                        <th>GPS</th>
+                        <th>Thao tác</th>
+                    </tr>
+
+                </thead>
+
+                <tbody id="tripTableBody">
+
+                    <tr>
+
+                        <td colspan="7">
+
+                            <div class="loading">
+                                Đang tải danh sách chuyến đi...
+                            </div>
+
+                        </td>
+
+                    </tr>
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </section>
+
+
+    <!-- EMPTY -->
+
+    <section
+        id="emptyState"
+        class="empty-state"
+    >
+        <h3>Không tìm thấy chuyến đi</h3>
+
+        <p>
+            Không có chuyến đi phù hợp với tìm kiếm.
+        </p>
+    </section>
+
+
+    <!-- SERVER -->
+
+    <section class="server-status">
+
+        <div>
+
+            <span
+                id="statusDot"
+                class="status-dot"
+            ></span>
+
+            <span id="serverStatus">
+                Đang kết nối SmartFleet Server...
+            </span>
+
+        </div>
+
+        <span id="lastUpdate">
+            --
+        </span>
+
+    </section>
+
+</main>
+
+
+<script
+    src="{{ url_for('static', filename='js/trips.js') }}"
+></script>
+
+</body>
+</html>
