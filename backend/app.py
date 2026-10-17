@@ -67,6 +67,7 @@ def vehicles_page():
 def drivers_page():
     return render_template("drivers.html")
 
+
 # ============================================================
 # GET ALL DRIVERS
 # ============================================================
@@ -85,9 +86,10 @@ def get_all_drivers():
                     SELECT
                         dp.id,
                         dp.driver_code,
-                        dp.status,
 
+                        u.id AS user_id,
                         u.full_name,
+                        u.status,
 
                         t.id AS trip_id,
                         t.trip_code,
@@ -95,7 +97,8 @@ def get_all_drivers():
 
                         v.id AS vehicle_id,
                         v.vehicle_code,
-                        v.device_id
+                        v.device_id,
+                        v.status AS vehicle_status
 
                     FROM driver_profiles dp
 
@@ -121,6 +124,8 @@ def get_all_drivers():
 
             drivers.append({
                 "id": row["id"],
+                "user_id": row["user_id"],
+
                 "driver_code": row["driver_code"],
                 "full_name": row["full_name"],
                 "status": row["status"],
@@ -131,7 +136,8 @@ def get_all_drivers():
 
                 "vehicle_id": row["vehicle_id"],
                 "vehicle_code": row["vehicle_code"],
-                "device_id": row["device_id"]
+                "device_id": row["device_id"],
+                "vehicle_status": row["vehicle_status"]
             })
 
         return jsonify({
@@ -149,6 +155,7 @@ def get_all_drivers():
             "reason": "SERVER_ERROR",
             "message": "Could not read drivers"
         }), 500
+
 # ============================================================
 # WEB - TRIPS
 # ============================================================
