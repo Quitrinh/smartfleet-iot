@@ -1400,7 +1400,192 @@ def get_all_trips():
             "reason": "SERVER_ERROR",
             "message": "Could not read trips"
         }), 500
-    
+
+# ============================================================
+# DASHBOARD SUMMARY
+# ============================================================
+
+@app.get("/api/dashboard/summary")
+def get_dashboard_summary():
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+
+                # ====================================================
+                # 1. DRIVERS
+                # ====================================================
+
+                cur.execute(
+                    """
+                    SELECT
+                        COUNT(dp.id) AS total_drivers,
+
+                        COUNT(dp.id) FILTER (
+                            WHERE u.status = 'ACTIVE'
+                        ) AS active_drivers
+
+                    FROM driver_profiles dp
+
+                    JOIN users u
+                        ON u.id = dp.user_id
+                    """
+                )
+
+                driver_stats = cur.fetchone()
+
+                # ====================================================
+                # 2. VEHICLES
+                # ====================================================
+
+                cur.execute(
+                    """
+                    SELECT
+                        COUNT(*) AS total_vehicles,
+
+                        COUNT(*) FILTER (
+                            WHERE status = 'AVAILABLE'
+                        ) AS available_vehicles,
+
+                        COUNT(*) FILTER (
+                            WHERE status = 'IN_TRIP'
+                        ) AS vehicles_in_trip,
+
+                        COUNT(*) FILTER (
+                            WHERE status = 'MAINTENANCE'
+                        ) AS maintenance_vehicles,
+
+                        COUNT(*) FILTER (
+                            WHERE status = 'DISABLED'
+                        ) AS disabled_vehicles
+
+                    FROM vehicles
+                    """
+                )
+
+                vehicle_stats = cur.fetchone()
+
+                # ====================================================
+                # 3. TRIPS
+                # ====================================================
+
+                cur.execute(
+                    """
+                    SELECT
+                        COUNT(*) AS total_trips,
+
+                        COUNT(*) FILTER (
+                            WHERE status = 'IN_PROGRESS'
+                        ) AS active_trips,
+
+                        COUNT(*) FILTER (
+                            WHERE status = 'COMPLETED'
+                        ) AS completed_trips,
+
+                        COUNT(*) FILTER (
+                            WHERE status = 'CANCELLED'
+                        ) AS cancelled_trips
+
+                    FROM trips
+                    """
+                )
+
+                trip_stats = cur.fetchone()
+
+                # ====================================================
+                # 4. GPS
+                # ====================================================
+
+                cur.execute(
+                    """
+                    SELECT
+                        COUNT(*) AS total_gps_logs,
+                        MAX(recorded_at) AS last_gps_at
+
+                    FROM gps_logs
+                    """
+                )
+
+                gps_stats = cur.fetchone()
+
+                # ====================================================
+                # 5. ACCESS LOGS
+                # ====================================================
+
+                cur.execute(
+                    """
+                    SELECT
+                        COUNT(*) AS total_access_logs,
+
+                        COUNT(*) FILTER (
+                            WHERE granted = TRUE
+                        ) AS granted_access,
+
+                        COUNT(*) FILTER (
+                            WHERE granted = FALSE
+                        ) AS denied_access
+
+                    FROM access_logs
+                    """
+                )
+
+                access_stats = cur.fetchone()
+
+        # ============================================================
+        # RESPONSE
+        # ============================================================
+
+        return jsonify({
+            "status": "ok",
+
+            "summary": {
+
+                "drivers": {
+                    "total": driver_stats["total_drivers"],
+                    "active": driver_stats["active_drivers"]
+                },
+
+                "vehicles": {
+                    "total": vehicle_stats["total_vehicles"],
+                    "available": vehicle_stats["available_vehicles"],
+                    "in_trip": vehicle_stats["vehicles_in_trip"],
+                    "maintenance": vehicle_stats["maintenance_vehicles"],
+                    "disabled": vehicle_stats["disabled_vehicles"]
+                },
+
+                "trips": {
+                    "total": trip_stats["total_trips"],
+                    "active": trip_stats["active_trips"],
+                    "completed": trip_stats["completed_trips"],
+                    "cancelled": trip_stats["cancelled_trips"]
+                },
+
+                "gps": {
+                    "total_logs": gps_stats["total_gps_logs"],
+
+                    "last_gps_at":
+                        gps_stats["last_gps_at"].isoformat()
+                        if gps_stats["last_gps_at"]
+                        else None
+                },
+
+                "access": {
+                    "total": access_stats["total_access_logs"],
+                    "granted": access_stats["granted_access"],
+                    "denied": access_stats["denied_access"]
+                }
+            }
+
+        }), 200
+
+    except Exception as e:
+
+        print("[DASHBOARD SUMMARY ERROR]", repr(e))
+
+        return jsonify({
+            "status": "error",
+            "reason": "SERVER_ERROR",
+            "message": "Could not load dashboard summary"
+        }), 500
 # ============================================================
 # ACCESS EVENT
 # Existing endpoint - keep for compatibility with ESP32
@@ -1512,6 +1697,192 @@ def get_access_logs():
             "status": "error",
             "reason": "SERVER_ERROR",
             "message": "Could not read access logs"
+        }), 500
+
+# ============================================================
+# DASHBOARD SUMMARY
+# ============================================================
+
+@app.get("/api/dashboard/summary")
+def get_dashboard_summary():
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+
+                # ====================================================
+                # 1. DRIVERS
+                # ====================================================
+
+                cur.execute(
+                    """
+                    SELECT
+                        COUNT(dp.id) AS total_drivers,
+
+                        COUNT(dp.id) FILTER (
+                            WHERE u.status = 'ACTIVE'
+                        ) AS active_drivers
+
+                    FROM driver_profiles dp
+
+                    JOIN users u
+                        ON u.id = dp.user_id
+                    """
+                )
+
+                driver_stats = cur.fetchone()
+
+                # ====================================================
+                # 2. VEHICLES
+                # ====================================================
+
+                cur.execute(
+                    """
+                    SELECT
+                        COUNT(*) AS total_vehicles,
+
+                        COUNT(*) FILTER (
+                            WHERE status = 'AVAILABLE'
+                        ) AS available_vehicles,
+
+                        COUNT(*) FILTER (
+                            WHERE status = 'IN_TRIP'
+                        ) AS vehicles_in_trip,
+
+                        COUNT(*) FILTER (
+                            WHERE status = 'MAINTENANCE'
+                        ) AS maintenance_vehicles,
+
+                        COUNT(*) FILTER (
+                            WHERE status = 'DISABLED'
+                        ) AS disabled_vehicles
+
+                    FROM vehicles
+                    """
+                )
+
+                vehicle_stats = cur.fetchone()
+
+                # ====================================================
+                # 3. TRIPS
+                # ====================================================
+
+                cur.execute(
+                    """
+                    SELECT
+                        COUNT(*) AS total_trips,
+
+                        COUNT(*) FILTER (
+                            WHERE status = 'IN_PROGRESS'
+                        ) AS active_trips,
+
+                        COUNT(*) FILTER (
+                            WHERE status = 'COMPLETED'
+                        ) AS completed_trips,
+
+                        COUNT(*) FILTER (
+                            WHERE status = 'CANCELLED'
+                        ) AS cancelled_trips
+
+                    FROM trips
+                    """
+                )
+
+                trip_stats = cur.fetchone()
+
+                # ====================================================
+                # 4. GPS
+                # ====================================================
+
+                cur.execute(
+                    """
+                    SELECT
+                        COUNT(*) AS total_gps_logs,
+                        MAX(recorded_at) AS last_gps_at
+
+                    FROM gps_logs
+                    """
+                )
+
+                gps_stats = cur.fetchone()
+
+                # ====================================================
+                # 5. ACCESS LOGS
+                # ====================================================
+
+                cur.execute(
+                    """
+                    SELECT
+                        COUNT(*) AS total_access_logs,
+
+                        COUNT(*) FILTER (
+                            WHERE granted = TRUE
+                        ) AS granted_access,
+
+                        COUNT(*) FILTER (
+                            WHERE granted = FALSE
+                        ) AS denied_access
+
+                    FROM access_logs
+                    """
+                )
+
+                access_stats = cur.fetchone()
+
+        # ============================================================
+        # RESPONSE
+        # ============================================================
+
+        return jsonify({
+            "status": "ok",
+
+            "summary": {
+
+                "drivers": {
+                    "total": driver_stats["total_drivers"],
+                    "active": driver_stats["active_drivers"]
+                },
+
+                "vehicles": {
+                    "total": vehicle_stats["total_vehicles"],
+                    "available": vehicle_stats["available_vehicles"],
+                    "in_trip": vehicle_stats["vehicles_in_trip"],
+                    "maintenance": vehicle_stats["maintenance_vehicles"],
+                    "disabled": vehicle_stats["disabled_vehicles"]
+                },
+
+                "trips": {
+                    "total": trip_stats["total_trips"],
+                    "active": trip_stats["active_trips"],
+                    "completed": trip_stats["completed_trips"],
+                    "cancelled": trip_stats["cancelled_trips"]
+                },
+
+                "gps": {
+                    "total_logs": gps_stats["total_gps_logs"],
+
+                    "last_gps_at":
+                        gps_stats["last_gps_at"].isoformat()
+                        if gps_stats["last_gps_at"]
+                        else None
+                },
+
+                "access": {
+                    "total": access_stats["total_access_logs"],
+                    "granted": access_stats["granted_access"],
+                    "denied": access_stats["denied_access"]
+                }
+            }
+
+        }), 200
+
+    except Exception as e:
+
+        print("[DASHBOARD SUMMARY ERROR]", repr(e))
+
+        return jsonify({
+            "status": "error",
+            "reason": "SERVER_ERROR",
+            "message": "Could not load dashboard summary"
         }), 500
 # ============================================================
 # GPS LOCATION
