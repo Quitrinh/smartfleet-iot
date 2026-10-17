@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
     <meta charset="UTF-8">
 
@@ -8,108 +9,503 @@
         content="width=device-width, initial-scale=1.0"
     >
 
-    <title>SmartFleet Dashboard</title>
+    <meta
+        name="description"
+        content="SmartFleet - Hệ thống giám sát và quản lý phương tiện IoT"
+    >
 
-    <!-- Leaflet CSS -->
+    <title>SmartFleet | Dashboard</title>
+
+
+    <!-- ===================================================== -->
+    <!-- LEAFLET CSS -->
+    <!-- ===================================================== -->
+
     <link
         rel="stylesheet"
         href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
     >
 
-    <!-- Dashboard CSS - sẽ tạo ở bước sau -->
+
+    <!-- ===================================================== -->
+    <!-- FONT AWESOME -->
+    <!-- ===================================================== -->
+
+    <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    >
+
+
+    <!-- ===================================================== -->
+    <!-- DASHBOARD CSS -->
+    <!-- ===================================================== -->
+
     <link
         rel="stylesheet"
         href="{{ url_for('static', filename='css/dashboard.css') }}"
     >
+
 </head>
+
 
 <body>
 
-    <!-- ===================================================== -->
-    <!-- HEADER -->
-    <!-- ===================================================== -->
 
-    <header class="topbar">
+<!-- ========================================================= -->
+<!-- SIDEBAR -->
+<!-- ========================================================= -->
 
-        <div>
-            <h1>SmartFleet</h1>
-            <p>Vehicle Tracking Dashboard</p>
+<aside class="sidebar">
+
+    <!-- BRAND -->
+
+    <div class="sidebar-brand">
+
+        <div class="brand-icon">
+            <i class="fa-solid fa-truck-fast"></i>
         </div>
 
-        <div class="connection-status">
-            <span id="connectionDot"></span>
-            <span id="connectionText">Đang kết nối...</span>
+        <div class="brand-text">
+            <h1>SmartFleet</h1>
+            <span>Fleet Management</span>
+        </div>
+
+    </div>
+
+
+    <!-- NAVIGATION -->
+
+    <nav class="sidebar-nav">
+
+        <span class="nav-section-title">
+            QUẢN LÝ
+        </span>
+
+
+        <a
+            href="/dashboard"
+            class="nav-item active"
+        >
+
+            <i class="fa-solid fa-chart-pie"></i>
+
+            <span>
+                Tổng quan
+            </span>
+
+        </a>
+
+
+        <a
+            href="/vehicles"
+            class="nav-item"
+        >
+
+            <i class="fa-solid fa-truck"></i>
+
+            <span>
+                Phương tiện
+            </span>
+
+        </a>
+
+
+        <a
+            href="/drivers"
+            class="nav-item"
+        >
+
+            <i class="fa-solid fa-id-card"></i>
+
+            <span>
+                Tài xế
+            </span>
+
+        </a>
+
+
+        <a
+            href="/trips"
+            class="nav-item"
+        >
+
+            <i class="fa-solid fa-route"></i>
+
+            <span>
+                Chuyến đi
+            </span>
+
+        </a>
+
+
+        <span class="nav-section-title nav-section-second">
+            HỆ THỐNG
+        </span>
+
+
+        <a
+            href="#tracking"
+            class="nav-item"
+        >
+
+            <i class="fa-solid fa-location-dot"></i>
+
+            <span>
+                Theo dõi GPS
+            </span>
+
+        </a>
+
+
+        <a
+            href="#activity"
+            class="nav-item"
+        >
+
+            <i class="fa-solid fa-clock-rotate-left"></i>
+
+            <span>
+                Nhật ký hoạt động
+            </span>
+
+        </a>
+
+    </nav>
+
+
+    <!-- SIDEBAR BOTTOM -->
+
+    <div class="sidebar-bottom">
+
+        <div class="sidebar-system-status">
+
+            <span
+                id="connectionDot"
+                class="system-dot"
+            ></span>
+
+            <div>
+                <strong id="connectionText">
+                    Đang kết nối...
+                </strong>
+
+                <small>
+                    Azure Cloud
+                </small>
+            </div>
+
+        </div>
+
+
+        <div class="sidebar-device">
+
+            <i class="fa-solid fa-microchip"></i>
+
+            <div>
+                <span>
+                    Thiết bị
+                </span>
+
+                <strong>
+                    TRUCK_001
+                </strong>
+            </div>
+
+        </div>
+
+    </div>
+
+</aside>
+
+
+
+<!-- ========================================================= -->
+<!-- MAIN CONTENT -->
+<!-- ========================================================= -->
+
+<main class="main-content">
+
+
+    <!-- ===================================================== -->
+    <!-- TOP HEADER -->
+    <!-- ===================================================== -->
+
+    <header class="dashboard-header">
+
+        <div>
+
+            <p class="page-eyebrow">
+                SMARTFLEET CONTROL CENTER
+            </p>
+
+            <h2>
+                Tổng quan hệ thống
+            </h2>
+
+            <p class="page-description">
+                Theo dõi phương tiện, hành trình và trạng thái hệ thống theo thời gian thực.
+            </p>
+
+        </div>
+
+
+        <div class="header-actions">
+
+            <div class="api-status-box">
+
+                <span>
+                    API
+                </span>
+
+                <strong id="apiStatus">
+                    Đang kiểm tra...
+                </strong>
+
+            </div>
+
+
+            <button
+                id="refreshButton"
+                class="refresh-button"
+                type="button"
+            >
+
+                <i class="fa-solid fa-rotate"></i>
+
+                <span>
+                    Cập nhật
+                </span>
+
+            </button>
+
         </div>
 
     </header>
 
 
+
     <!-- ===================================================== -->
-    <!-- MAIN CONTENT -->
+    <!-- OVERVIEW STATISTICS -->
     <!-- ===================================================== -->
 
-    <main class="dashboard-container">
+    <section class="overview-section">
 
-        <!-- ================================================= -->
-        <!-- SUMMARY CARDS -->
-        <!-- ================================================= -->
 
-        <section class="summary-grid">
+        <div class="section-heading">
 
-            <div class="summary-card">
+            <div>
 
-                <span class="card-label">
-                    Phương tiện
-                </span>
+                <h3>
+                    Tổng quan
+                </h3>
 
-                <strong id="vehicleCode">
-                    --
-                </strong>
-
-                <small id="deviceId">
-                    TRUCK_001
-                </small>
+                <p>
+                    Trạng thái hiện tại của hệ thống SmartFleet
+                </p>
 
             </div>
 
+        </div>
 
-            <div class="summary-card">
 
-                <span class="card-label">
-                    Chuyến đi
-                </span>
 
-                <strong id="tripCode">
-                    --
-                </strong>
+        <div class="stats-grid">
 
-                <small id="tripId">
-                    Trip ID: --
-                </small>
 
+            <!-- TOTAL VEHICLES -->
+
+            <article class="stat-card">
+
+                <div class="stat-card-top">
+
+                    <div class="stat-icon">
+                        <i class="fa-solid fa-truck"></i>
+                    </div>
+
+                    <span class="stat-label">
+                        Tổng phương tiện
+                    </span>
+
+                </div>
+
+
+                <div class="stat-value-row">
+
+                    <strong id="totalVehicles">
+                        --
+                    </strong>
+
+                    <span class="stat-unit">
+                        xe
+                    </span>
+
+                </div>
+
+
+                <p class="stat-footer">
+
+                    <span
+                        id="availableVehicles"
+                        class="status-value"
+                    >
+                        --
+                    </span>
+
+                    xe sẵn sàng
+
+                </p>
+
+            </article>
+
+
+
+            <!-- VEHICLES IN TRIP -->
+
+            <article class="stat-card">
+
+                <div class="stat-card-top">
+
+                    <div class="stat-icon">
+                        <i class="fa-solid fa-road"></i>
+                    </div>
+
+                    <span class="stat-label">
+                        Đang hoạt động
+                    </span>
+
+                </div>
+
+
+                <div class="stat-value-row">
+
+                    <strong id="vehiclesInTrip">
+                        --
+                    </strong>
+
+                    <span class="stat-unit">
+                        xe
+                    </span>
+
+                </div>
+
+
+                <p class="stat-footer">
+                    Phương tiện đang thực hiện chuyến
+                </p>
+
+            </article>
+
+
+
+            <!-- DRIVERS -->
+
+            <article class="stat-card">
+
+                <div class="stat-card-top">
+
+                    <div class="stat-icon">
+                        <i class="fa-solid fa-user"></i>
+                    </div>
+
+                    <span class="stat-label">
+                        Tài xế hoạt động
+                    </span>
+
+                </div>
+
+
+                <div class="stat-value-row">
+
+                    <strong id="activeDrivers">
+                        --
+                    </strong>
+
+                    <span class="stat-unit">
+                        /
+                        <span id="totalDrivers">
+                            --
+                        </span>
+                    </span>
+
+                </div>
+
+
+                <p class="stat-footer">
+                    Tài xế đang hoạt động
+                </p>
+
+            </article>
+
+
+
+            <!-- TRIPS -->
+
+            <article class="stat-card">
+
+                <div class="stat-card-top">
+
+                    <div class="stat-icon">
+                        <i class="fa-solid fa-route"></i>
+                    </div>
+
+                    <span class="stat-label">
+                        Chuyến hoàn thành
+                    </span>
+
+                </div>
+
+
+                <div class="stat-value-row">
+
+                    <strong id="completedTrips">
+                        --
+                    </strong>
+
+                    <span class="stat-unit">
+                        /
+                        <span id="totalTrips">
+                            --
+                        </span>
+                    </span>
+
+                </div>
+
+
+                <p class="stat-footer">
+
+                    Đang thực hiện:
+
+                    <span id="activeTrips">
+                        --
+                    </span>
+
+                </p>
+
+            </article>
+
+        </div>
+
+    </section>
+
+
+
+    <!-- ===================================================== -->
+    <!-- SECONDARY STATISTICS -->
+    <!-- ===================================================== -->
+
+    <section class="mini-stats-grid">
+
+
+        <article class="mini-stat">
+
+            <div class="mini-stat-icon">
+                <i class="fa-solid fa-satellite-dish"></i>
             </div>
 
+            <div>
 
-            <div class="summary-card">
-
-                <span class="card-label">
-                    Trạng thái
-                </span>
-
-                <strong id="tripStatus">
-                    --
-                </strong>
-
-                <small id="vehicleStatus">
-                    Vehicle: --
-                </small>
-
-            </div>
-
-
-            <div class="summary-card">
-
-                <span class="card-label">
+                <span>
                     GPS Logs
                 </span>
 
@@ -117,83 +513,287 @@
                     0
                 </strong>
 
-                <small>
-                    Điểm GPS
-                </small>
+            </div>
+
+        </article>
+
+
+
+        <article class="mini-stat">
+
+            <div class="mini-stat-icon">
+                <i class="fa-solid fa-circle-check"></i>
+            </div>
+
+            <div>
+
+                <span>
+                    Truy cập hợp lệ
+                </span>
+
+                <strong id="accessGranted">
+                    --
+                </strong>
 
             </div>
 
-        </section>
+        </article>
+
+
+
+        <article class="mini-stat">
+
+            <div class="mini-stat-icon">
+                <i class="fa-solid fa-circle-exclamation"></i>
+            </div>
+
+            <div>
+
+                <span>
+                    Truy cập bị từ chối
+                </span>
+
+                <strong id="accessDenied">
+                    --
+                </strong>
+
+            </div>
+
+        </article>
+
+
+
+        <article class="mini-stat">
+
+            <div class="mini-stat-icon">
+                <i class="fa-solid fa-clock"></i>
+            </div>
+
+            <div>
+
+                <span>
+                    Tự động cập nhật
+                </span>
+
+                <strong id="updateCountdown">
+                    10s
+                </strong>
+
+            </div>
+
+        </article>
+
+    </section>
+
+
+
+    <!-- ===================================================== -->
+    <!-- LIVE TRACKING -->
+    <!-- ===================================================== -->
+
+    <section
+        id="tracking"
+        class="tracking-section"
+    >
 
 
         <!-- ================================================= -->
-        <!-- MAP + VEHICLE INFORMATION -->
+        <!-- MAP PANEL -->
         <!-- ================================================= -->
 
-        <section class="tracking-grid">
+        <div class="dashboard-panel map-panel">
 
-            <!-- MAP -->
 
-            <div class="map-panel">
+            <div class="panel-header">
 
-                <div class="panel-header">
+                <div>
 
-                    <div>
-                        <h2>Theo dõi phương tiện</h2>
+                    <span class="panel-eyebrow">
+                        LIVE TRACKING
+                    </span>
 
-                        <p id="routeDescription">
-                            Đang tải dữ liệu hành trình...
-                        </p>
-                    </div>
+                    <h3>
+                        Theo dõi phương tiện
+                    </h3>
 
-                    <button
-                        id="refreshButton"
-                        type="button"
-                    >
-                        Cập nhật
-                    </button>
+                    <p id="routeDescription">
+                        Đang tải dữ liệu hành trình...
+                    </p>
 
                 </div>
 
 
-                <!-- Leaflet map -->
+                <div class="live-badge">
 
-                <div id="map"></div>
+                    <span class="live-dot"></span>
+
+                    LIVE
+
+                </div>
 
             </div>
 
 
-            <!-- VEHICLE INFO -->
+            <!-- LEAFLET MAP -->
 
-            <aside class="vehicle-panel">
+            <div id="map"></div>
 
-                <div class="panel-header">
 
-                    <div>
-                        <h2>Thông tin GPS</h2>
-                        <p>Dữ liệu mới nhất</p>
-                    </div>
+            <!-- MAP BOTTOM INFO -->
+
+            <div class="map-footer">
+
+                <div>
+
+                    <span>
+                        Phương tiện
+                    </span>
+
+                    <strong id="vehicleCode">
+                        --
+                    </strong>
 
                 </div>
 
 
-                <div class="vehicle-data">
+                <div>
 
-                    <div class="data-item">
+                    <span>
+                        Device ID
+                    </span>
+
+                    <strong id="deviceId">
+                        TRUCK_001
+                    </strong>
+
+                </div>
+
+
+                <div>
+
+                    <span>
+                        Chuyến đi
+                    </span>
+
+                    <strong id="tripCode">
+                        --
+                    </strong>
+
+                </div>
+
+
+                <div>
+
+                    <span>
+                        Trạng thái
+                    </span>
+
+                    <strong id="tripStatus">
+                        --
+                    </strong>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- ================================================= -->
+        <!-- VEHICLE INFORMATION -->
+        <!-- ================================================= -->
+
+        <aside class="dashboard-panel vehicle-panel">
+
+
+            <div class="panel-header">
+
+                <div>
+
+                    <span class="panel-eyebrow">
+                        VEHICLE STATUS
+                    </span>
+
+                    <h3>
+                        Thông tin phương tiện
+                    </h3>
+
+                    <p>
+                        Dữ liệu GPS mới nhất
+                    </p>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- VEHICLE STATUS -->
+
+            <div class="vehicle-status-card">
+
+                <div>
+
+                    <span>
+                        Vehicle Status
+                    </span>
+
+                    <strong id="vehicleStatus">
+                        Vehicle: --
+                    </strong>
+
+                </div>
+
+
+                <i class="fa-solid fa-truck-fast"></i>
+
+            </div>
+
+
+
+            <!-- GPS DATA -->
+
+            <div class="vehicle-data">
+
+
+                <div class="data-item">
+
+                    <div class="data-icon">
+                        <i class="fa-solid fa-gauge-high"></i>
+                    </div>
+
+                    <div class="data-content">
 
                         <span>
                             Tốc độ
                         </span>
 
                         <strong>
-                            <span id="speed">--</span>
-                            km/h
+
+                            <span id="speed">
+                                --
+                            </span>
+
+                            <small>
+                                km/h
+                            </small>
+
                         </strong>
 
                     </div>
 
+                </div>
 
-                    <div class="data-item">
+
+
+                <div class="data-item">
+
+                    <div class="data-icon">
+                        <i class="fa-solid fa-satellite"></i>
+                    </div>
+
+                    <div class="data-content">
 
                         <span>
                             Vệ tinh
@@ -205,8 +805,17 @@
 
                     </div>
 
+                </div>
 
-                    <div class="data-item">
+
+
+                <div class="data-item">
+
+                    <div class="data-icon">
+                        <i class="fa-solid fa-database"></i>
+                    </div>
+
+                    <div class="data-content">
 
                         <span>
                             GPS Log ID
@@ -218,8 +827,17 @@
 
                     </div>
 
+                </div>
 
-                    <div class="data-item">
+
+
+                <div class="data-item">
+
+                    <div class="data-icon">
+                        <i class="fa-regular fa-clock"></i>
+                    </div>
+
+                    <div class="data-content">
 
                         <span>
                             Cập nhật cuối
@@ -233,15 +851,30 @@
 
                 </div>
 
-
-                <!-- ROUTE INFORMATION -->
-
-                <div class="route-information">
-
-                    <h3>Hành trình</h3>
+            </div>
 
 
-                    <div class="route-item">
+
+            <!-- ROUTE INFORMATION -->
+
+            <div class="route-information">
+
+                <div class="route-title">
+
+                    <i class="fa-solid fa-route"></i>
+
+                    <h4>
+                        Hành trình
+                    </h4>
+
+                </div>
+
+
+                <div class="route-point">
+
+                    <span class="route-marker start"></span>
+
+                    <div>
 
                         <span>
                             Điểm xuất phát
@@ -253,13 +886,17 @@
 
                     </div>
 
-
-                    <div class="route-arrow">
-                        ↓
-                    </div>
+                </div>
 
 
-                    <div class="route-item">
+                <div class="route-line"></div>
+
+
+                <div class="route-point">
+
+                    <span class="route-marker destination"></span>
+
+                    <div>
 
                         <span>
                             Điểm đến
@@ -273,102 +910,285 @@
 
                 </div>
 
+            </div>
 
-                <!-- AUTO UPDATE -->
 
-                <div class="auto-update">
 
-                    <span>
-                        Tự động cập nhật
+            <!-- TRIP ID -->
+
+            <div class="trip-reference">
+
+                <span>
+                    Trip ID
+                </span>
+
+                <strong id="tripId">
+                    Trip ID: --
+                </strong>
+
+            </div>
+
+        </aside>
+
+    </section>
+
+
+
+    <!-- ===================================================== -->
+    <!-- ACTIVITY + SYSTEM -->
+    <!-- ===================================================== -->
+
+    <section
+        id="activity"
+        class="bottom-grid"
+    >
+
+
+        <!-- ================================================= -->
+        <!-- RECENT ACTIVITY -->
+        <!-- ================================================= -->
+
+        <div class="dashboard-panel activity-panel">
+
+
+            <div class="panel-header">
+
+                <div>
+
+                    <span class="panel-eyebrow">
+                        ACCESS LOG
                     </span>
 
-                    <strong>
-                        10 giây
+                    <h3>
+                        Hoạt động gần đây
+                    </h3>
+
+                    <p>
+                        Các sự kiện mới nhất của hệ thống
+                    </p>
+
+                </div>
+
+
+                <a
+                    href="#"
+                    class="panel-link"
+                >
+                    Xem tất cả
+                </a>
+
+            </div>
+
+
+
+            <div
+                id="recentActivity"
+                class="activity-list"
+            >
+
+
+                <div class="activity-empty">
+
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+
+                    <p>
+                        Đang tải hoạt động...
+                    </p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- ================================================= -->
+        <!-- SYSTEM INFORMATION -->
+        <!-- ================================================= -->
+
+        <div class="dashboard-panel system-info-panel">
+
+
+            <div class="panel-header">
+
+                <div>
+
+                    <span class="panel-eyebrow">
+                        SYSTEM
+                    </span>
+
+                    <h3>
+                        Trạng thái hệ thống
+                    </h3>
+
+                    <p>
+                        Kết nối SmartFleet Cloud
+                    </p>
+
+                </div>
+
+            </div>
+
+
+
+            <div class="system-status-list">
+
+
+                <div class="system-status-item">
+
+                    <div>
+
+                        <i class="fa-solid fa-cloud"></i>
+
+                        <span>
+                            Azure API
+                        </span>
+
+                    </div>
+
+                    <strong
+                        id="systemApiStatus"
+                        class="status-online"
+                    >
+                        Online
                     </strong>
 
                 </div>
 
-            </aside>
-
-        </section>
 
 
-        <!-- ================================================= -->
-        <!-- SYSTEM STATUS -->
-        <!-- ================================================= -->
+                <div class="system-status-item">
 
-        <section class="system-panel">
+                    <div>
 
-            <div>
+                        <i class="fa-solid fa-database"></i>
 
-                <span class="system-label">
-                    API
-                </span>
+                        <span>
+                            PostgreSQL
+                        </span>
 
-                <strong id="apiStatus">
-                    Đang kiểm tra...
-                </strong>
+                    </div>
+
+                    <strong class="status-online">
+                        Connected
+                    </strong>
+
+                </div>
+
+
+
+                <div class="system-status-item">
+
+                    <div>
+
+                        <i class="fa-solid fa-microchip"></i>
+
+                        <span>
+                            ESP32-S3
+                        </span>
+
+                    </div>
+
+                    <strong>
+                        TRUCK_001
+                    </strong>
+
+                </div>
+
+
+
+                <div class="system-status-item">
+
+                    <div>
+
+                        <i class="fa-solid fa-signal"></i>
+
+                        <span>
+                            GPS Tracking
+                        </span>
+
+                    </div>
+
+                    <strong class="status-online">
+                        Active
+                    </strong>
+
+                </div>
 
             </div>
 
+        </div>
 
-            <div>
+    </section>
 
-                <span class="system-label">
-                    Thiết bị
-                </span>
-
-                <strong>
-                    TRUCK_001
-                </strong>
-
-            </div>
-
-
-            <div>
-
-                <span class="system-label">
-                    Cập nhật dữ liệu
-                </span>
-
-                <strong id="updateCountdown">
-                    10s
-                </strong>
-
-            </div>
-
-        </section>
-
-    </main>
 
 
     <!-- ===================================================== -->
     <!-- FOOTER -->
     <!-- ===================================================== -->
 
-    <footer>
+    <footer class="dashboard-footer">
 
-        SmartFleet IoT Vehicle Monitoring System
+        <div>
+
+            <strong>
+                SmartFleet
+            </strong>
+
+            <span>
+                IoT Vehicle Monitoring System
+            </span>
+
+        </div>
+
+
+        <div>
+
+            <span>
+                ESP32-S3
+            </span>
+
+            <span>•</span>
+
+            <span>
+                Azure
+            </span>
+
+            <span>•</span>
+
+            <span>
+                PostgreSQL
+            </span>
+
+        </div>
 
     </footer>
 
 
-    <!-- ===================================================== -->
-    <!-- JAVASCRIPT -->
-    <!-- ===================================================== -->
-
-    <!-- Leaflet -->
-
-    <script
-        src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    ></script>
+</main>
 
 
-    <!-- Dashboard JS - sẽ tạo ở bước sau -->
 
-    <script
-        src="{{ url_for('static', filename='js/dashboard.js') }}"
-    ></script>
+<!-- ========================================================= -->
+<!-- LEAFLET JS -->
+<!-- ========================================================= -->
+
+<script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+></script>
+
+
+
+<!-- ========================================================= -->
+<!-- DASHBOARD JAVASCRIPT -->
+<!-- ========================================================= -->
+
+<script
+    src="{{ url_for('static', filename='js/dashboard.js') }}"
+></script>
+
 
 </body>
+
 </html>
