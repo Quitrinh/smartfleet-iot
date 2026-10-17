@@ -1418,7 +1418,101 @@ def access():
         "timestamp": datetime.now(timezone.utc).isoformat()
     })
 
+# ============================================================
+# GET ALL ACCESS LOGS
+# ============================================================
 
+@app.get("/api/access-logs")
+def get_access_logs():
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+
+                cur.execute(
+                    """
+                    SELECT
+                        al.id,
+                        al.rfid_uid,
+                        al.event,
+                        al.granted,
+                        al.reason,
+                        al.created_at,
+
+                        dp.id AS driver_id,
+                        dp.driver_code,
+
+                        u.full_name AS driver_name,
+
+                        v.id AS vehicle_id,
+                        v.vehicle_code,
+                        v.device_id,
+
+                        t.id AS trip_id,
+                        t.trip_code
+
+                    FROM access_logs al
+
+                    LEFT JOIN driver_profiles dp
+                        ON dp.id = al.driver_id
+
+                    LEFT JOIN users u
+                        ON u.id = dp.user_id
+
+                    LEFT JOIN vehicles v
+                        ON v.id = al.vehicle_id
+
+                    LEFT JOIN trips t
+                        ON t.id = al.trip_id
+
+                    ORDER BY al.created_at DESC
+                    """
+                )
+
+                rows = cur.fetchall()
+
+        logs = []
+
+        for row in rows:
+            logs.append({
+                "id": row["id"],
+
+                "driver_id": row["driver_id"],
+                "driver_code": row["driver_code"],
+                "driver_name": row["driver_name"],
+
+                "vehicle_id": row["vehicle_id"],
+                "vehicle_code": row["vehicle_code"],
+                "device_id": row["device_id"],
+
+                "trip_id": row["trip_id"],
+                "trip_code": row["trip_code"],
+
+                "rfid_uid": row["rfid_uid"],
+                "event": row["event"],
+                "granted": row["granted"],
+                "reason": row["reason"],
+
+                "created_at":
+                    row["created_at"].isoformat()
+                    if row["created_at"]
+                    else None
+            })
+
+        return jsonify({
+            "status": "ok",
+            "count": len(logs),
+            "logs": logs
+        }), 200
+
+    except Exception as e:
+
+        print("[GET ACCESS LOGS ERROR]", repr(e))
+
+        return jsonify({
+            "status": "error",
+            "reason": "SERVER_ERROR",
+            "message": "Could not read access logs"
+        }), 500
 # ============================================================
 # GPS LOCATION
 # ============================================================
