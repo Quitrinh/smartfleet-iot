@@ -887,16 +887,13 @@ def start_trip():
 #
 # ============================================================
 
-# ============================================================
-# GPS TRACKING API
-# ============================================================
-
 @app.route("/api/gps", methods=["POST"])
-def receive_gps():
+def save_gps_location():
 
     try:
+
         # ====================================================
-        # 1. READ JSON
+        # READ JSON
         # ====================================================
 
         data = request.get_json(silent=True)
@@ -910,21 +907,21 @@ def receive_gps():
 
 
         # ====================================================
-        # 2. GET DATA
+        # GET FIELDS
         # ====================================================
 
         device_id = data.get("device_id")
         trip_id = data.get("trip_id")
-
         latitude = data.get("latitude")
         longitude = data.get("longitude")
 
+        # Hai field này có thể không có.
         speed_kmh = data.get("speed_kmh")
         satellites = data.get("satellites")
 
 
         # ====================================================
-        # 3. REQUIRED FIELDS
+        # REQUIRED FIELDS
         # ====================================================
 
         if (
@@ -941,12 +938,11 @@ def receive_gps():
 
 
         # ====================================================
-        # 4. CONVERT DATA TYPES
+        # CONVERT TYPES
         # ====================================================
 
         try:
             trip_id = int(trip_id)
-
             latitude = float(latitude)
             longitude = float(longitude)
 
@@ -956,25 +952,17 @@ def receive_gps():
             if satellites is not None:
                 satellites = int(satellites)
 
-        except Exception as e:
-
-            print("================================")
-            print("GPS API ERROR")
-            print("================================")
-            print(type(e).__name__)
-            print(str(e))
-            print("================================")
+        except (TypeError, ValueError):
 
             return jsonify({
                 "status": "error",
                 "saved": False,
-                "reason": "SERVER_ERROR",
-                "debug": str(e)
-            }), 500
+                "reason": "INVALID_DATA_TYPE"
+            }), 400
 
 
         # ====================================================
-        # 5. VALIDATE
+        # VALIDATE TRIP ID
         # ====================================================
 
         if trip_id <= 0:
@@ -985,7 +973,11 @@ def receive_gps():
             }), 400
 
 
-        if latitude < -90 or latitude > 90:
+        # ====================================================
+        # VALIDATE COORDINATES
+        # ====================================================
+
+        if not (-90.0 <= latitude <= 90.0):
             return jsonify({
                 "status": "error",
                 "saved": False,
@@ -993,13 +985,17 @@ def receive_gps():
             }), 400
 
 
-        if longitude < -180 or longitude > 180:
+        if not (-180.0 <= longitude <= 180.0):
             return jsonify({
                 "status": "error",
                 "saved": False,
                 "reason": "INVALID_LONGITUDE"
             }), 400
 
+
+        # ====================================================
+        # VALIDATE SPEED
+        # ====================================================
 
         if speed_kmh is not None and speed_kmh < 0:
             return jsonify({
@@ -1008,6 +1004,10 @@ def receive_gps():
                 "reason": "INVALID_SPEED"
             }), 400
 
+
+        # ====================================================
+        # VALIDATE SATELLITES
+        # ====================================================
 
         if satellites is not None and satellites < 0:
             return jsonify({
@@ -1018,7 +1018,7 @@ def receive_gps():
 
 
         # ====================================================
-        # 6. DATABASE TRANSACTION
+        # DATABASE CONNECTION
         # ====================================================
 
         with engine.begin() as conn:
@@ -1095,7 +1095,7 @@ def receive_gps():
 
 
             # =================================================
-            # VERIFY TRIP BELONGS TO VEHICLE
+            # VERIFY TRIP -> VEHICLE
             # =================================================
 
             if trip["vehicle_id"] != vehicle["id"]:
@@ -1107,7 +1107,7 @@ def receive_gps():
 
 
             # =================================================
-            # TRIP MUST BE RUNNING
+            # TRIP MUST BE ACTIVE
             # =================================================
 
             if trip["status"] != "IN_PROGRESS":
@@ -1120,7 +1120,7 @@ def receive_gps():
 
 
             # =================================================
-            # VEHICLE MUST BE IN TRIP
+            # VEHICLE SHOULD BE IN_TRIP
             # =================================================
 
             if vehicle["status"] != "IN_TRIP":
@@ -1133,7 +1133,7 @@ def receive_gps():
 
 
             # =================================================
-            # 7. INSERT GPS LOG
+            # INSERT GPS LOG
             # =================================================
 
             gps_log = conn.execute(
@@ -1170,11 +1170,13 @@ def receive_gps():
 
 
         # ====================================================
-        # 8. SUCCESS
+        # SUCCESS
         # ====================================================
 
         return jsonify({
+
             "status": "ok",
+
             "saved": True,
 
             "gps_log": {
@@ -1194,11 +1196,12 @@ def receive_gps():
                 "device_id": vehicle["device_id"],
                 "status": vehicle["status"]
             }
+
         }), 200
 
 
     # ========================================================
-    # ERROR
+    # SERVER ERROR
     # ========================================================
 
     except Exception as e:
@@ -1213,6 +1216,7 @@ def receive_gps():
             "saved": False,
             "reason": "SERVER_ERROR"
         }), 500
+
 
 @app.post("/api/access")
 def access():
