@@ -1,13 +1,31 @@
 import os
 from datetime import datetime, timezone
-
 import psycopg
 from psycopg.rows import dict_row
-from flask import Flask, request, jsonify, render_template
 from werkzeug.security import check_password_hash
+from functools import wraps
+
+from flask import (
+    Flask,
+    request,
+    jsonify,
+    render_template,
+    session,
+    redirect,
+    url_for
+)
 
 app = Flask(__name__)
 
+app.secret_key = os.environ.get(
+    "FLASK_SECRET_KEY",
+    "dev-secret-key-change-me"
+)
+
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax"
+)
 
 # ============================================================
 # DATABASE
@@ -31,6 +49,25 @@ def get_db_connection():
         connect_timeout=10,
         row_factory=dict_row
     )
+# ============================================================
+# ADMIN AUTHENTICATION
+# ============================================================
+
+def admin_login_required(view_function):
+
+    @wraps(view_function)
+    def wrapped_view(*args, **kwargs):
+
+        if not session.get("admin_user_id"):
+            return redirect(url_for("login_page"))
+
+        if session.get("admin_role") != "ADMIN":
+            session.clear()
+            return redirect(url_for("login_page"))
+
+        return view_function(*args, **kwargs)
+
+    return wrapped_view
 
 # ============================================================
 # ADMIN LOGIN API
@@ -135,6 +172,17 @@ def admin_login():
         # 7. LOGIN SUCCESS
         # --------------------------------------------------------
 
+# --------------------------------------------------------
+# 7. CREATE ADMIN SESSION
+# --------------------------------------------------------
+
+        session.clear()
+
+        session["admin_user_id"] = user["id"]
+        session["admin_name"] = user["full_name"]
+        session["admin_email"] = user["email"]
+        session["admin_role"] = user["role"]
+
         return jsonify({
             "status": "ok",
             "authenticated": True,
@@ -172,29 +220,64 @@ def home():
     })
 
 # ============================================================
+# WEB - ADMIN LOGIN
+# ============================================================
+
+@app.get("/login")
+def login_page():
+
+    if session.get("admin_user_id"):
+        return redirect(url_for("dashboard"))
+
+    return render_template("login.html")
+
+
+# ============================================================
+# WEB - ADMIN LOGOUT
+# ============================================================
+
+@app.post("/logout")
+def logout():
+
+    session.clear()
+
+    return jsonify({
+        "status": "ok",
+        "logged_out": True
+    }), 200
+
+# ============================================================
 # WEB DASHBOARD
 # ============================================================
 
 @app.get("/dashboard")
+@admin_login_required
 def dashboard():
     return render_template("dashboard.html")
 
-# ============================================================
-# WEB - VEHICLES
-# ============================================================
 
 @app.get("/vehicles")
+@admin_login_required
 def vehicles_page():
     return render_template("vehicles.html")
 
-# ============================================================
-# WEB - DRIVERS
-# ============================================================
 
 @app.get("/drivers")
+@admin_login_required
 def drivers_page():
     return render_template("drivers.html")
 
+
+@app.get("/trips")
+@admin_login_required
+def trips_page():
+    return render_template("trips.html")
+
+
+@app.get("/tracking")
+@admin_login_required
+def tracking_page():
+    return render_template("tracking.html")
 
 # ============================================================
 # GET ALL DRIVERS
@@ -284,13 +367,6 @@ def get_all_drivers():
             "message": "Could not read drivers"
         }), 500
 
-# ============================================================
-# WEB - TRIPS
-# ============================================================
-
-@app.get("/trips")
-def trips_page():
-    return render_template("trips.html")
 # ============================================================
 # HEALTH
 # ============================================================
@@ -1665,10 +1741,6 @@ def get_all_trips():
             "message": "Could not read trips"
         }), 500
 
-
-@app.get("/tracking")
-def tracking_page():
-    return render_template("tracking.html")
 
 # ============================================================
 # ACCESS EVENT
