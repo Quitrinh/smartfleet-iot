@@ -32,7 +32,133 @@ def get_db_connection():
         row_factory=dict_row
     )
 
+# ============================================================
+# ADMIN LOGIN API
+# ============================================================
 
+@app.post("/api/auth/login")
+def admin_login():
+
+    data = request.get_json(silent=True) or {}
+
+    email = str(data.get("email", "")).strip().lower()
+    password = str(data.get("password", ""))
+
+    # --------------------------------------------------------
+    # 1. VALIDATE REQUEST
+    # --------------------------------------------------------
+
+    if not email or not password:
+        return jsonify({
+            "status": "error",
+            "authenticated": False,
+            "reason": "MISSING_FIELDS",
+            "message": "Email and password are required"
+        }), 400
+
+    try:
+
+        with get_db_connection() as conn:
+
+            with conn.cursor() as cur:
+
+                # ------------------------------------------------
+                # 2. FIND USER
+                # ------------------------------------------------
+
+                cur.execute(
+                    """
+                    SELECT
+                        id,
+                        full_name,
+                        email,
+                        password_hash,
+                        role,
+                        status
+                    FROM users
+                    WHERE LOWER(email) = %s
+                    LIMIT 1
+                    """,
+                    (email,)
+                )
+
+                user = cur.fetchone()
+
+        # --------------------------------------------------------
+        # 3. USER NOT FOUND
+        # --------------------------------------------------------
+
+        if user is None:
+            return jsonify({
+                "status": "ok",
+                "authenticated": False,
+                "reason": "INVALID_CREDENTIALS"
+            }), 401
+
+        # --------------------------------------------------------
+        # 4. ADMIN ONLY
+        # --------------------------------------------------------
+
+        if user["role"] != "ADMIN":
+            return jsonify({
+                "status": "ok",
+                "authenticated": False,
+                "reason": "ADMIN_REQUIRED"
+            }), 403
+
+        # --------------------------------------------------------
+        # 5. ACCOUNT MUST BE ACTIVE
+        # --------------------------------------------------------
+
+        if user["status"] != "ACTIVE":
+            return jsonify({
+                "status": "ok",
+                "authenticated": False,
+                "reason": "ACCOUNT_NOT_ACTIVE"
+            }), 403
+
+        # --------------------------------------------------------
+        # 6. VERIFY PASSWORD
+        # --------------------------------------------------------
+
+        if not check_password_hash(
+            user["password_hash"],
+            password
+        ):
+            return jsonify({
+                "status": "ok",
+                "authenticated": False,
+                "reason": "INVALID_CREDENTIALS"
+            }), 401
+
+        # --------------------------------------------------------
+        # 7. LOGIN SUCCESS
+        # --------------------------------------------------------
+
+        return jsonify({
+            "status": "ok",
+            "authenticated": True,
+
+            "user": {
+                "id": user["id"],
+                "full_name": user["full_name"],
+                "email": user["email"],
+                "role": user["role"]
+            }
+
+        }), 200
+
+    except Exception as e:
+
+        print("[ADMIN LOGIN ERROR]", repr(e))
+
+        return jsonify({
+            "status": "error",
+            "authenticated": False,
+            "reason": "SERVER_ERROR",
+            "message": "Could not login"
+        }), 500
+    
 # ============================================================
 # HOME
 # ============================================================
