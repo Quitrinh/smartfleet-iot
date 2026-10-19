@@ -1611,3 +1611,101 @@ body {
     }
 
 }
+/* ============================================================
+   ADMIN LOGOUT
+   ============================================================ */
+
+.logout-button {
+    width: 100%;
+
+    min-height: 42px;
+
+    display: flex;
+    align-items: center;
+
+    gap: 11px;
+
+    margin-top: 8px;
+
+    padding: 0 12px;
+
+    border:
+        1px solid
+        rgba(255, 255, 255, 0.08);
+
+    border-radius: 8px;
+
+    background: transparent;
+
+    color: var(--sidebar-text);
+
+    font-family: inherit;
+
+    font-size: 12px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition:
+        background 0.15s ease,
+        color 0.15s ease,
+        border-color 0.15s ease;
+}
+
+
+.logout-button i {
+    width: 20px;
+
+    color: #94a3b8;
+
+    font-size: 13px;
+
+    text-align: center;
+}
+
+
+.logout-button:hover {
+    background: rgba(220, 38, 38, 0.10);
+
+    border-color:
+        rgba(248, 113, 113, 0.20);
+
+    color: #fca5a5;
+}
+
+
+.logout-button:hover i {
+    color: #f87171;
+}
+
+
+.logout-button:disabled {
+    opacity: 0.6;
+
+    cursor: not-allowed;
+}
+
+
+/* ============================================================
+   LOGOUT - TABLET SIDEBAR
+   ============================================================ */
+
+@media (max-width: 900px) {
+
+    .logout-button {
+        justify-content: center;
+
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    .logout-button span {
+        display: none;
+    }
+
+    .logout-button i {
+        width: auto;
+
+        font-size: 15px;
+    }
+}
