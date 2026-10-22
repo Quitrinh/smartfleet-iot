@@ -2,13 +2,9 @@
 
 <html lang="vi">
 
-
-
 <head>
 
     <meta charset="UTF-8">
-
-
 
     <meta
 
@@ -18,8 +14,6 @@
 
     >
 
-
-
     <meta
 
         name="description"
@@ -28,13 +22,7 @@
 
     >
 
-
-
     <title>SmartFleet | Dashboard</title>
-
-
-
-
 
     <!-- ===================================================== -->
 
@@ -42,19 +30,13 @@
 
     <!-- ===================================================== -->
 
-
-
     <link
 
         rel="stylesheet"
 
-        href="https\://unpkg.com/leaflet\@1.9.4/dist/leaflet.css"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
 
     >
-
-
-
-
 
     <!-- ===================================================== -->
 
@@ -62,19 +44,13 @@
 
     <!-- ===================================================== -->
 
-
-
     <link
 
         rel="stylesheet"
 
-        href="https\://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
 
     >
-
-
-
-
 
     <!-- ===================================================== -->
 
@@ -82,57 +58,29 @@
 
     <!-- ===================================================== -->
 
-
-
     <link
 
         rel="stylesheet"
 
-        href="{{ url_for('static', filename='css/dashboard.css') }}"
+        href="/static/css/dashboard.css"
 
     >
 
-
-
 </head>
 
-
-
-
-
 <body>
-
-
-
-
-
-<!-- ========================================================= -->
-
-<!-- SIDEBAR -->
-
-<!-- ========================================================= -->
-
-
-
+<!-- ========================================================= --><!-- SIDEBAR --><!-- ========================================================= -->
 <aside class="sidebar">
-
-
 
     <!-- BRAND -->
 
-
-
     <div class="sidebar-brand">
-
-
 
         <div class="brand-icon">
 
             <i class="fa-solid fa-truck-fast"></i>
 
         </div>
-
-
 
         <div class="brand-text">
 
@@ -142,31 +90,17 @@
 
         </div>
 
-
-
     </div>
-
-
-
-
 
     <!-- NAVIGATION -->
 
-
-
     <nav class="sidebar-nav">
-
-
 
         <span class="nav-section-title">
 
             QUẢN LÝ
 
         </span>
-
-
-
-
 
         <a
 
@@ -176,11 +110,7 @@
 
         >
 
-
-
             <i class="fa-solid fa-chart-pie"></i>
-
-
 
             <span>
 
@@ -188,13 +118,7 @@
 
             </span>
 
-
-
         </a>
-
-
-
-
 
         <a
 
@@ -204,11 +128,7 @@
 
         >
 
-
-
             <i class="fa-solid fa-truck"></i>
-
-
 
             <span>
 
@@ -216,13 +136,7 @@
 
             </span>
 
-
-
         </a>
-
-
-
-
 
         <a
 
@@ -232,11 +146,7 @@
 
         >
 
-
-
             <i class="fa-solid fa-id-card"></i>
-
-
 
             <span>
 
@@ -244,13 +154,7 @@
 
             </span>
 
-
-
         </a>
-
-
-
-
 
         <a
 
@@ -260,11 +164,7 @@
 
         >
 
-
-
             <i class="fa-solid fa-route"></i>
-
-
 
             <span>
 
@@ -272,23 +172,13 @@
 
             </span>
 
-
-
         </a>
-
-
-
-
 
         <span class="nav-section-title nav-section-second">
 
             HỆ THỐNG
 
         </span>
-
-
-
-
 
         <a
 
@@ -298,11 +188,7 @@
 
         >
 
-
-
             <i class="fa-solid fa-location-dot"></i>
-
-
 
             <span>
 
@@ -310,13 +196,7 @@
 
             </span>
 
-
-
         </a>
-
-
-
-
 
         <a
 
@@ -326,11 +206,7 @@
 
         >
 
-
-
             <i class="fa-solid fa-clock-rotate-left"></i>
-
-
 
             <span>
 
@@ -338,78 +214,93 @@
 
             </span>
 
-
-
         </a>
-
-
 
     </nav>
 
-
     <!-- ===================================================== -->
+
     <!-- SIDEBAR BOTTOM -->
+
     <!-- ===================================================== -->
 
     <div class="sidebar-bottom">
 
         <!-- AZURE CONNECTION STATUS -->
+
         <div class="sidebar-system-status">
+
             <span id="sidebarSystemDot" class="system-dot"></span>
 
             <div>
+
                 <strong id="sidebarSystemStatus">
+
                     Đang kiểm tra
+
                 </strong>
 
                 <small>
+
                     Azure Cloud
+
                 </small>
+
             </div>
+
         </div>
 
         <!-- DEVICE -->
+
         <div class="sidebar-device">
+
             <i class="fa-solid fa-microchip"></i>
 
             <div>
+
                 <span>
+
                     Thiết bị
+
                 </span>
 
                 <strong>
+
                     TRUCK_001
+
                 </strong>
+
             </div>
+
         </div>
 
         <!-- LOGOUT -->
+
         <button
+
             id="logoutButton"
+
             class="logout-button"
+
             type="button"
+
         >
+
             <i class="fa-solid fa-right-from-bracket"></i>
 
             <span>
+
                 Đăng xuất
+
             </span>
+
         </button>
 
     </div>
 
 </aside>
-
-
-<!-- ========================================================= -->
-<!-- MAIN CONTENT -->
-<!-- ========================================================= -->
-
+<!-- ========================================================= --><!-- MAIN CONTENT --><!-- ========================================================= -->
 <main class="main-content">
-
-
-
-
 
     <!-- ===================================================== -->
 
@@ -417,15 +308,9 @@
 
     <!-- ===================================================== -->
 
-
-
     <header class="dashboard-header">
 
-
-
         <div>
-
-
 
             <p class="page-eyebrow">
 
@@ -433,15 +318,11 @@
 
             </p>
 
-
-
             <h2>
 
                 Tổng quan hệ thống
 
             </h2>
-
-
 
             <p class="page-description">
 
@@ -449,21 +330,11 @@
 
             </p>
 
-
-
         </div>
-
-
-
-
 
         <div class="header-actions">
 
-
-
             <div class="api-status-box">
-
-
 
                 <span>
 
@@ -471,21 +342,13 @@
 
                 </span>
 
-
-
                 <strong id="apiStatus">
 
                     Đang kiểm tra...
 
                 </strong>
 
-
-
             </div>
-
-
-
-
 
             <button
 
@@ -497,11 +360,7 @@
 
             >
 
-
-
                 <i class="fa-solid fa-rotate"></i>
-
-
 
                 <span>
 
@@ -509,23 +368,11 @@
 
                 </span>
 
-
-
             </button>
-
-
 
         </div>
 
-
-
     </header>
-
-
-
-
-
-
 
     <!-- ===================================================== -->
 
@@ -533,21 +380,11 @@
 
     <!-- ===================================================== -->
 
-
-
     <section class="overview-section">
-
-
-
-
 
         <div class="section-heading">
 
-
-
             <div>
-
-
 
                 <h3>
 
@@ -555,45 +392,23 @@
 
                 </h3>
 
-
-
                 <p>
 
                     Trạng thái hiện tại của hệ thống SmartFleet
 
                 </p>
 
-
-
             </div>
-
-
 
         </div>
 
-
-
-
-
-
-
         <div class="stats-grid">
-
-
-
-
 
             <!-- TOTAL VEHICLES -->
 
-
-
             <article class="stat-card">
 
-
-
                 <div class="stat-card-top">
-
-
 
                     <div class="stat-icon">
 
@@ -601,25 +416,15 @@
 
                     </div>
 
-
-
                     <span class="stat-label">
 
                         Tổng phương tiện
 
                     </span>
 
-
-
                 </div>
 
-
-
-
-
                 <div class="stat-value-row">
-
-
 
                     <strong id="totalVehicles">
 
@@ -627,25 +432,15 @@
 
                     </strong>
 
-
-
                     <span class="stat-unit">
 
                         xe
 
                     </span>
 
-
-
                 </div>
 
-
-
-
-
                 <p class="stat-footer">
-
-
 
                     <span
 
@@ -659,35 +454,17 @@
 
                     </span>
 
-
-
                     xe sẵn sàng
-
-
 
                 </p>
 
-
-
             </article>
-
-
-
-
-
-
 
             <!-- VEHICLES IN TRIP -->
 
-
-
             <article class="stat-card">
 
-
-
                 <div class="stat-card-top">
-
-
 
                     <div class="stat-icon">
 
@@ -695,25 +472,15 @@
 
                     </div>
 
-
-
                     <span class="stat-label">
 
                         Đang hoạt động
 
                     </span>
 
-
-
                 </div>
 
-
-
-
-
                 <div class="stat-value-row">
-
-
 
                     <strong id="vehiclesInTrip">
 
@@ -721,21 +488,13 @@
 
                     </strong>
 
-
-
                     <span class="stat-unit">
 
                         xe
 
                     </span>
 
-
-
                 </div>
-
-
-
-
 
                 <p class="stat-footer">
 
@@ -743,27 +502,13 @@
 
                 </p>
 
-
-
             </article>
-
-
-
-
-
-
 
             <!-- DRIVERS -->
 
-
-
             <article class="stat-card">
 
-
-
                 <div class="stat-card-top">
-
-
 
                     <div class="stat-icon">
 
@@ -771,33 +516,21 @@
 
                     </div>
 
-
-
                     <span class="stat-label">
 
                         Tài xế hoạt động
 
                     </span>
 
-
-
                 </div>
 
-
-
-
-
                 <div class="stat-value-row">
-
-
 
                     <strong id="activeDrivers">
 
                         \--
 
                     </strong>
-
-
 
                     <span class="stat-unit">
 
@@ -811,13 +544,7 @@
 
                     </span>
 
-
-
                 </div>
-
-
-
-
 
                 <p class="stat-footer">
 
@@ -825,27 +552,13 @@
 
                 </p>
 
-
-
             </article>
-
-
-
-
-
-
 
             <!-- TRIPS -->
 
-
-
             <article class="stat-card">
 
-
-
                 <div class="stat-card-top">
-
-
 
                     <div class="stat-icon">
 
@@ -853,33 +566,21 @@
 
                     </div>
 
-
-
                     <span class="stat-label">
 
                         Chuyến hoàn thành
 
                     </span>
 
-
-
                 </div>
 
-
-
-
-
                 <div class="stat-value-row">
-
-
 
                     <strong id="completedTrips">
 
                         \--
 
                     </strong>
-
-
 
                     <span class="stat-unit">
 
@@ -893,21 +594,11 @@
 
                     </span>
 
-
-
                 </div>
-
-
-
-
 
                 <p class="stat-footer">
 
-
-
                     Đang thực hiện:
-
-
 
                     <span id="activeTrips">
 
@@ -915,27 +606,13 @@
 
                     </span>
 
-
-
                 </p>
-
-
 
             </article>
 
-
-
         </div>
 
-
-
     </section>
-
-
-
-
-
-
 
     <!-- ===================================================== -->
 
@@ -943,17 +620,9 @@
 
     <!-- ===================================================== -->
 
-
-
     <section class="mini-stats-grid">
 
-
-
-
-
         <article class="mini-stat">
-
-
 
             <div class="mini-stat-icon">
 
@@ -961,11 +630,7 @@
 
             </div>
 
-
-
             <div>
-
-
 
                 <span>
 
@@ -973,31 +638,17 @@
 
                 </span>
 
-
-
                 <strong id="gpsPointCount">
 
                     0
 
                 </strong>
 
-
-
             </div>
-
-
 
         </article>
 
-
-
-
-
-
-
         <article class="mini-stat">
-
-
 
             <div class="mini-stat-icon">
 
@@ -1005,11 +656,7 @@
 
             </div>
 
-
-
             <div>
-
-
 
                 <span>
 
@@ -1017,31 +664,17 @@
 
                 </span>
 
-
-
                 <strong id="accessGranted">
 
                     \--
 
                 </strong>
 
-
-
             </div>
-
-
 
         </article>
 
-
-
-
-
-
-
         <article class="mini-stat">
-
-
 
             <div class="mini-stat-icon">
 
@@ -1049,11 +682,7 @@
 
             </div>
 
-
-
             <div>
-
-
 
                 <span>
 
@@ -1061,31 +690,17 @@
 
                 </span>
 
-
-
                 <strong id="accessDenied">
 
                     \--
 
                 </strong>
 
-
-
             </div>
-
-
 
         </article>
 
-
-
-
-
-
-
         <article class="mini-stat">
-
-
 
             <div class="mini-stat-icon">
 
@@ -1093,11 +708,7 @@
 
             </div>
 
-
-
             <div>
-
-
 
                 <span>
 
@@ -1105,39 +716,23 @@
 
                 </span>
 
-
-
                 <strong id="updateCountdown">
 
                     10s
 
                 </strong>
 
-
-
             </div>
-
-
 
         </article>
 
-
-
     </section>
-
-
-
-
-
-
 
     <!-- ===================================================== -->
 
     <!-- LIVE TRACKING -->
 
     <!-- ===================================================== -->
-
-
 
     <section
 
@@ -1147,31 +742,17 @@
 
     >
 
-
-
-
-
         <!-- ================================================= -->
 
         <!-- MAP PANEL -->
 
         <!-- ================================================= -->
 
-
-
         <div class="dashboard-panel map-panel">
-
-
-
-
 
             <div class="panel-header">
 
-
-
                 <div>
-
-
 
                     <span class="panel-eyebrow">
 
@@ -1179,15 +760,11 @@
 
                     </span>
 
-
-
                     <h3>
 
                         Theo dõi phương tiện
 
                     </h3>
-
-
 
                     <p id="routeDescription">
 
@@ -1195,57 +772,27 @@
 
                     </p>
 
-
-
                 </div>
-
-
-
-
 
                 <div class="live-badge">
 
-
-
                     <span class="live-dot"></span>
-
-
 
                     LIVE
 
-
-
                 </div>
-
-
 
             </div>
 
-
-
-
-
             <!-- LEAFLET MAP -->
-
-
 
             <div id="map"></div>
 
-
-
-
-
             <!-- MAP BOTTOM INFO -->
-
-
 
             <div class="map-footer">
 
-
-
                 <div>
-
-
 
                     <span>
 
@@ -1253,25 +800,15 @@
 
                     </span>
 
-
-
                     <strong id="vehicleCode">
 
                         \--
 
                     </strong>
 
-
-
                 </div>
 
-
-
-
-
                 <div>
-
-
 
                     <span>
 
@@ -1279,25 +816,15 @@
 
                     </span>
 
-
-
                     <strong id="deviceId">
 
                         TRUCK_001
 
                     </strong>
 
-
-
                 </div>
 
-
-
-
-
                 <div>
-
-
 
                     <span>
 
@@ -1305,25 +832,15 @@
 
                     </span>
 
-
-
                     <strong id="tripCode">
 
                         \--
 
                     </strong>
 
-
-
                 </div>
 
-
-
-
-
                 <div>
-
-
 
                     <span>
 
@@ -1331,31 +848,17 @@
 
                     </span>
 
-
-
                     <strong id="tripStatus">
 
                         \--
 
                     </strong>
 
-
-
                 </div>
-
-
 
             </div>
 
-
-
         </div>
-
-
-
-
-
-
 
         <!-- ================================================= -->
 
@@ -1363,21 +866,11 @@
 
         <!-- ================================================= -->
 
-
-
         <aside class="dashboard-panel vehicle-panel">
-
-
-
-
 
             <div class="panel-header">
 
-
-
                 <div>
-
-
 
                     <span class="panel-eyebrow">
 
@@ -1385,15 +878,11 @@
 
                     </span>
 
-
-
                     <h3>
 
                         Thông tin phương tiện
 
                     </h3>
-
-
 
                     <p>
 
@@ -1401,31 +890,15 @@
 
                     </p>
 
-
-
                 </div>
-
-
 
             </div>
 
-
-
-
-
-
-
             <!-- VEHICLE STATUS -->
-
-
 
             <div class="vehicle-status-card">
 
-
-
                 <div>
-
-
 
                     <span>
 
@@ -1433,47 +906,23 @@
 
                     </span>
 
-
-
                     <strong id="vehicleStatus">
 
                         Vehicle: --
 
                     </strong>
 
-
-
                 </div>
-
-
-
-
 
                 <i class="fa-solid fa-truck-fast"></i>
 
-
-
             </div>
-
-
-
-
-
-
 
             <!-- GPS DATA -->
 
-
-
             <div class="vehicle-data">
 
-
-
-
-
                 <div class="data-item">
-
-
 
                     <div class="data-icon">
 
@@ -1481,11 +930,7 @@
 
                     </div>
 
-
-
                     <div class="data-content">
-
-
 
                         <span>
 
@@ -1493,11 +938,7 @@
 
                         </span>
 
-
-
                         <strong>
-
-
 
                             <span id="speed">
 
@@ -1505,35 +946,19 @@
 
                             </span>
 
-
-
                             <small>
 
                                 km/h
 
                             </small>
 
-
-
                         </strong>
-
-
 
                     </div>
 
-
-
                 </div>
 
-
-
-
-
-
-
                 <div class="data-item">
-
-
 
                     <div class="data-icon">
 
@@ -1541,11 +966,7 @@
 
                     </div>
 
-
-
                     <div class="data-content">
-
-
 
                         <span>
 
@@ -1553,31 +974,17 @@
 
                         </span>
 
-
-
                         <strong id="satellites">
 
                             \--
 
                         </strong>
 
-
-
                     </div>
-
-
 
                 </div>
 
-
-
-
-
-
-
                 <div class="data-item">
-
-
 
                     <div class="data-icon">
 
@@ -1585,11 +992,7 @@
 
                     </div>
 
-
-
                     <div class="data-content">
-
-
 
                         <span>
 
@@ -1597,31 +1000,17 @@
 
                         </span>
 
-
-
                         <strong id="gpsLogId">
 
                             \--
 
                         </strong>
 
-
-
                     </div>
-
-
 
                 </div>
 
-
-
-
-
-
-
                 <div class="data-item">
-
-
 
                     <div class="data-icon">
 
@@ -1629,11 +1018,7 @@
 
                     </div>
 
-
-
                     <div class="data-content">
-
-
 
                         <span>
 
@@ -1641,47 +1026,25 @@
 
                         </span>
 
-
-
                         <strong id="lastUpdate">
 
                             \--
 
                         </strong>
 
-
-
                     </div>
-
-
 
                 </div>
 
-
-
             </div>
-
-
-
-
-
-
 
             <!-- ROUTE INFORMATION -->
 
-
-
             <div class="route-information">
-
-
 
                 <div class="route-title">
 
-
-
                     <i class="fa-solid fa-route"></i>
-
-
 
                     <h4>
 
@@ -1689,25 +1052,13 @@
 
                     </h4>
 
-
-
                 </div>
-
-
-
-
 
                 <div class="route-point">
 
-
-
                     <span class="route-marker start"></span>
 
-
-
                     <div>
-
-
 
                         <span>
 
@@ -1715,43 +1066,23 @@
 
                         </span>
 
-
-
                         <strong id="originName">
 
                             \--
 
                         </strong>
 
-
-
                     </div>
-
-
 
                 </div>
 
-
-
-
-
                 <div class="route-line"></div>
-
-
-
-
 
                 <div class="route-point">
 
-
-
                     <span class="route-marker destination"></span>
 
-
-
                     <div>
-
-
 
                         <span>
 
@@ -1759,39 +1090,21 @@
 
                         </span>
 
-
-
                         <strong id="destinationName">
 
                             \--
 
                         </strong>
 
-
-
                     </div>
-
-
 
                 </div>
 
-
-
             </div>
-
-
-
-
-
-
 
             <!-- TRIP ID -->
 
-
-
             <div class="trip-reference">
-
-
 
                 <span>
 
@@ -1799,39 +1112,23 @@
 
                 </span>
 
-
-
                 <strong id="tripId">
 
                     Trip ID: --
 
                 </strong>
 
-
-
             </div>
-
-
 
         </aside>
 
-
-
     </section>
-
-
-
-
-
-
 
     <!-- ===================================================== -->
 
     <!-- ACTIVITY + SYSTEM -->
 
     <!-- ===================================================== -->
-
-
 
     <section
 
@@ -1841,31 +1138,17 @@
 
     >
 
-
-
-
-
         <!-- ================================================= -->
 
         <!-- RECENT ACTIVITY -->
 
         <!-- ================================================= -->
 
-
-
         <div class="dashboard-panel activity-panel">
-
-
-
-
 
             <div class="panel-header">
 
-
-
                 <div>
-
-
 
                     <span class="panel-eyebrow">
 
@@ -1873,15 +1156,11 @@
 
                     </span>
 
-
-
                     <h3>
 
                         Hoạt động gần đây
 
                     </h3>
-
-
 
                     <p>
 
@@ -1889,13 +1168,7 @@
 
                     </p>
 
-
-
                 </div>
-
-
-
-
 
                 <a
 
@@ -1909,15 +1182,7 @@
 
                 </a>
 
-
-
             </div>
-
-
-
-
-
-
 
             <div
 
@@ -1927,17 +1192,9 @@
 
             >
 
-
-
-
-
                 <div class="activity-empty">
 
-
-
                     <i class="fa-solid fa-clock-rotate-left"></i>
-
-
 
                     <p>
 
@@ -1945,23 +1202,11 @@
 
                     </p>
 
-
-
                 </div>
-
-
 
             </div>
 
-
-
         </div>
-
-
-
-
-
-
 
         <!-- ================================================= -->
 
@@ -1969,21 +1214,11 @@
 
         <!-- ================================================= -->
 
-
-
         <div class="dashboard-panel system-info-panel">
-
-
-
-
 
             <div class="panel-header">
 
-
-
                 <div>
-
-
 
                     <span class="panel-eyebrow">
 
@@ -1991,15 +1226,11 @@
 
                     </span>
 
-
-
                     <h3>
 
                         Trạng thái hệ thống
 
                     </h3>
-
-
 
                     <p>
 
@@ -2007,37 +1238,17 @@
 
                     </p>
 
-
-
                 </div>
-
-
 
             </div>
 
-
-
-
-
-
-
             <div class="system-status-list">
-
-
-
-
 
                 <div class="system-status-item">
 
-
-
                     <div>
 
-
-
                         <i class="fa-solid fa-cloud"></i>
-
-
 
                         <span>
 
@@ -2045,11 +1256,7 @@
 
                         </span>
 
-
-
                     </div>
-
-
 
                     <strong
 
@@ -2063,27 +1270,13 @@
 
                     </strong>
 
-
-
                 </div>
-
-
-
-
-
-
 
                 <div class="system-status-item">
 
-
-
                     <div>
 
-
-
                         <i class="fa-solid fa-database"></i>
-
-
 
                         <span>
 
@@ -2091,11 +1284,7 @@
 
                         </span>
 
-
-
                     </div>
-
-
 
                     <strong class="status-online">
 
@@ -2103,27 +1292,13 @@
 
                     </strong>
 
-
-
                 </div>
-
-
-
-
-
-
 
                 <div class="system-status-item">
 
-
-
                     <div>
 
-
-
                         <i class="fa-solid fa-microchip"></i>
-
-
 
                         <span>
 
@@ -2131,11 +1306,7 @@
 
                         </span>
 
-
-
                     </div>
-
-
 
                     <strong>
 
@@ -2143,27 +1314,13 @@
 
                     </strong>
 
-
-
                 </div>
-
-
-
-
-
-
 
                 <div class="system-status-item">
 
-
-
                     <div>
 
-
-
                         <i class="fa-solid fa-signal"></i>
-
-
 
                         <span>
 
@@ -2171,11 +1328,7 @@
 
                         </span>
 
-
-
                     </div>
-
-
 
                     <strong class="status-online">
 
@@ -2183,27 +1336,13 @@
 
                     </strong>
 
-
-
                 </div>
-
-
 
             </div>
 
-
-
         </div>
 
-
-
     </section>
-
-
-
-
-
-
 
     <!-- ===================================================== -->
 
@@ -2211,15 +1350,9 @@
 
     <!-- ===================================================== -->
 
-
-
     <footer class="dashboard-footer">
 
-
-
         <div>
-
-
 
             <strong>
 
@@ -2227,25 +1360,15 @@
 
             </strong>
 
-
-
             <span>
 
                 IoT Vehicle Monitoring System
 
             </span>
 
-
-
         </div>
 
-
-
-
-
         <div>
-
-
 
             <span>
 
@@ -2253,11 +1376,7 @@
 
             </span>
 
-
-
             <span>•</span>
-
-
 
             <span>
 
@@ -2265,11 +1384,7 @@
 
             </span>
 
-
-
             <span>•</span>
-
-
 
             <span>
 
@@ -2277,72 +1392,30 @@
 
             </span>
 
-
-
         </div>
-
-
 
     </footer>
 
-
-
-
-
 </main>
-
-
-
-
-
-
-
-<!-- ========================================================= -->
-
-<!-- LEAFLET JS -->
-
-<!-- ========================================================= -->
-
-
-
+<!-- ========================================================= --><!-- LEAFLET JS --><!-- ========================================================= -->
 <script
 
-    src="https\://unpkg.com/leaflet\@1.9.4/dist/leaflet.js"
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+
+></script>
+<!-- ========================================================= --><!-- DASHBOARD JAVASCRIPT --><!-- ========================================================= -->
+<script
+
+    src="/static/js/dashboard.js"
 
 ></script>
 
-
-
-
-
-
-
-<!-- ========================================================= -->
-
-<!-- DASHBOARD JAVASCRIPT -->
-
-<!-- ========================================================= -->
-
-
-
 <script
 
-    src="{{ url_for('static', filename='js/dashboard.js') }}"
+    src="/static/js/logout.js"
 
 ></script>
-
-
-
-<script
-
-    src="{{ url_for('static', filename='js/logout.js') }}"
-
-></script>
-
-
 
 </body>
-
-
 
 </html>
