@@ -2931,41 +2931,123 @@ def camera_page(device_id):
         return "Invalid device_id", 400
 
     return f"""<!doctype html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SmartFleet Camera - {device_id}</title>
+<title>SmartFleet Live Camera - {device_id}</title>
 <style>
-body{{margin:0;background:#101214;color:#fff;font-family:Arial;text-align:center}}
-main{{max-width:900px;margin:auto;padding:24px}}
-img{{width:100%;max-width:800px;background:#222;border-radius:12px}}
-p{{color:#b8c0c8}}
+:root{{
+  --bg:#f4f6f8;--panel:#fff;--text:#17202a;--muted:#6b7280;
+  --line:#e5e7eb;--dark:#111827;--green:#16a34a;--red:#dc2626;
+}}
+*{{box-sizing:border-box}}
+body{{margin:0;background:var(--bg);color:var(--text);font-family:Inter,Arial,sans-serif}}
+.topbar{{height:68px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 28px;position:sticky;top:0;z-index:10}}
+.brand{{font-size:21px;font-weight:800;letter-spacing:-.4px}} .brand span{{color:#2563eb}}
+.device-pill{{display:flex;gap:9px;align-items:center;background:#f8fafc;border:1px solid var(--line);padding:9px 13px;border-radius:999px;font-size:13px;font-weight:700}}
+.dot{{width:9px;height:9px;border-radius:50%;background:#9ca3af}} .dot.live{{background:var(--green);box-shadow:0 0 0 4px rgba(22,163,74,.12)}}
+.shell{{max-width:1280px;margin:0 auto;padding:28px}}
+.header{{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-bottom:20px}}
+.eyebrow{{font-size:12px;text-transform:uppercase;letter-spacing:1.3px;color:#64748b;font-weight:800}}
+h1{{margin:6px 0 5px;font-size:30px;letter-spacing:-.8px}} .subtitle{{margin:0;color:var(--muted);font-size:14px}}
+.grid{{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(280px,.8fr);gap:20px;align-items:start}}
+.card{{background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:0 8px 28px rgba(15,23,42,.05);overflow:hidden}}
+.card-head{{padding:17px 19px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px}}
+.card-title{{font-size:15px;font-weight:800}} .live-badge{{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;color:var(--green);background:#f0fdf4;border:1px solid #bbf7d0;padding:7px 10px;border-radius:999px}}
+.camera-wrap{{position:relative;background:#0b0f14;min-height:420px;display:flex;align-items:center;justify-content:center}}
+#cam{{display:none;width:100%;height:auto;max-height:650px;object-fit:contain;image-rendering:auto}}
+#empty{{color:#94a3b8;text-align:center;padding:50px 20px}} #empty strong{{display:block;color:#e5e7eb;font-size:18px;margin-bottom:7px}}
+.camera-footer{{display:flex;gap:10px;flex-wrap:wrap;padding:14px 18px;background:#fff;border-top:1px solid var(--line)}}
+.metric{{font-size:12px;color:#475569;background:#f8fafc;border:1px solid var(--line);border-radius:9px;padding:7px 10px}} .metric b{{color:#111827}}
+.side{{display:grid;gap:20px}}
+.info{{padding:19px}} .info h2{{font-size:15px;margin:0 0 16px}}
+.row{{display:flex;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid #f0f2f5;font-size:13px}} .row:last-child{{border-bottom:0}}
+.label{{color:var(--muted)}} .value{{font-weight:750;text-align:right;word-break:break-word}}
+.status-box{{padding:17px 19px;display:flex;gap:12px;align-items:flex-start}}
+.status-icon{{width:38px;height:38px;border-radius:11px;background:#f0fdf4;display:grid;place-items:center;color:var(--green);font-weight:900}}
+.status-copy strong{{font-size:14px}} .status-copy p{{margin:5px 0 0;color:var(--muted);font-size:12px;line-height:1.5}}
+.tech{{margin-top:20px;padding:15px 18px;border:1px dashed #cbd5e1;border-radius:14px;color:#64748b;font-size:12px;background:#f8fafc}}
+.tech b{{color:#334155}}
+@media(max-width:850px){{.grid{{grid-template-columns:1fr}}.shell{{padding:18px}}.topbar{{padding:0 18px}}.camera-wrap{{min-height:260px}}.header{{align-items:flex-start;flex-direction:column}}}}
 </style>
 </head>
 <body>
-<main>
-<h1>SmartFleet Camera</h1>
-<p>{device_id} · OV3660 → ESP32-S3 → A7680C → 4G → Azure</p>
-<p id="status">Waiting for camera...</p>
-<img id="cam" alt="Latest camera frame">
+<header class="topbar">
+  <div class="brand"><span>Smart</span>Fleet</div>
+  <div class="device-pill"><span id="topDot" class="dot"></span>{device_id}</div>
+</header>
+<main class="shell">
+  <div class="header">
+    <div><div class="eyebrow">Fleet monitoring</div><h1>Live Camera</h1><p class="subtitle">Live vehicle view for active trip monitoring.</p></div>
+  </div>
+  <section class="grid">
+    <article class="card">
+      <div class="card-head"><div class="card-title">Vehicle camera</div><div id="liveBadge" class="live-badge" style="color:#64748b;background:#f8fafc;border-color:#e5e7eb"><span id="badgeDot" class="dot"></span><span id="badgeText">WAITING</span></div></div>
+      <div class="camera-wrap">
+        <div id="empty"><strong>Waiting for camera</strong>Camera will appear automatically when ESP32 uploads a frame.</div>
+        <img id="cam" alt="Latest SmartFleet camera frame">
+      </div>
+      <div class="camera-footer">
+        <div class="metric">Status: <b id="mStatus">Waiting</b></div>
+        <div class="metric">Updated: <b id="mUpdated">--</b></div>
+        <div class="metric">Frame: <b id="mSize">--</b></div>
+      </div>
+    </article>
+    <aside class="side">
+      <div class="card info"><h2>Trip information</h2>
+        <div class="row"><span class="label">Device</span><span class="value">{device_id}</span></div>
+        <div class="row"><span class="label">Trip ID</span><span id="tripId" class="value">--</span></div>
+        <div class="row"><span class="label">Camera</span><span class="value">OV3660</span></div>
+        <div class="row"><span class="label">Connection</span><span class="value">4G · A7680C</span></div>
+        <div class="row"><span class="label">Cloud</span><span class="value">Azure</span></div>
+      </div>
+      <div class="card status-box"><div class="status-icon">●</div><div class="status-copy"><strong id="connectionTitle">Camera standby</strong><p id="connectionText">Waiting for the first JPEG frame from the vehicle.</p></div></div>
+    </aside>
+  </section>
+  <div class="tech"><b>Data path:</b> OV3660 → ESP32-S3 → A7680C → 4G → Azure → SmartFleet Web. This page shows the latest JPEG frame and refreshes automatically.</div>
 </main>
 <script>
-const cam=document.getElementById("cam");
-const st=document.getElementById("status");
+const DEVICE={device_id!r};
+const cam=document.getElementById('cam'), empty=document.getElementById('empty');
+const topDot=document.getElementById('topDot'), badgeDot=document.getElementById('badgeDot');
+const badge=document.getElementById('liveBadge'), badgeText=document.getElementById('badgeText');
+let lastCaptured=null;
+function ageText(iso){{
+ if(!iso) return 'available';
+ const ms=Date.now()-new Date(iso).getTime();
+ if(!Number.isFinite(ms)) return 'available';
+ const s=Math.max(0,Math.floor(ms/1000));
+ if(s<2) return 'just now'; if(s<60) return s+'s ago'; return Math.floor(s/60)+'m ago';
+}}
+function setLive(live){{
+ topDot.classList.toggle('live',live); badgeDot.classList.toggle('live',live);
+ badgeText.textContent=live?'LIVE':'WAITING';
+ badge.style.color=live?'#16a34a':'#64748b'; badge.style.background=live?'#f0fdf4':'#f8fafc'; badge.style.borderColor=live?'#bbf7d0':'#e5e7eb';
+ document.getElementById('mStatus').textContent=live?'Online':'Waiting';
+ document.getElementById('connectionTitle').textContent=live?'Camera online':'Camera standby';
+ document.getElementById('connectionText').textContent=live?'Receiving camera frames from '+DEVICE+'.':'Waiting for the first JPEG frame from the vehicle.';
+}}
 async function refresh(){{
  const t=Date.now();
- cam.src="/api/camera/latest/{device_id}?t="+t;
  try{{
-  const r=await fetch("/api/camera/status/{device_id}?t="+t,{{cache:"no-store"}});
-  const d=await r.json();
-  st.textContent=d.found
-   ? "Trip: "+(d.trip_id??"-")+" | "+(d.size_bytes??"-")+" bytes | "+(d.captured_at??"available")
-   : "Waiting for ESP32 upload...";
- }}catch(e){{st.textContent="Camera status unavailable";}}
+   const r=await fetch('/api/camera/status/'+encodeURIComponent(DEVICE)+'?t='+t,{{cache:'no-store'}});
+   const d=await r.json();
+   if(d.found){{
+     const age=d.captured_at?Date.now()-new Date(d.captured_at).getTime():0;
+     const live=!d.captured_at || age<15000;
+     setLive(live);
+     document.getElementById('tripId').textContent=d.trip_id??'--';
+     document.getElementById('mSize').textContent=d.size_bytes?Math.round(d.size_bytes/1024*10)/10+' KB':'--';
+     document.getElementById('mUpdated').textContent=ageText(d.captured_at);
+     if(d.captured_at!==lastCaptured){{lastCaptured=d.captured_at;cam.src='/api/camera/latest/'+encodeURIComponent(DEVICE)+'?t='+t;}}
+     cam.style.display='block'; empty.style.display='none';
+   }}else{{setLive(false);cam.style.display='none';empty.style.display='block';}}
+ }}catch(e){{setLive(false);document.getElementById('mStatus').textContent='Unavailable';}}
 }}
-refresh();
-setInterval(refresh,2000);
+cam.onerror=()=>{{cam.style.display='none';empty.style.display='block';}};
+cam.onload=()=>{{cam.style.display='block';empty.style.display='none';}};
+refresh(); setInterval(refresh,1000);
 </script>
 </body>
 </html>"""
