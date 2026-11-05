@@ -6,6 +6,7 @@ from werkzeug.security import check_password_hash
 from functools import wraps
 
 from flask import (
+    Response,
     Flask,
     request,
     jsonify,
@@ -2800,6 +2801,174 @@ def get_trip_gps_history(trip_id):
             "reason": "SERVER_ERROR",
             "message": "Could not read trip GPS history"
         }), 500
+
+
+
+# ============================================================
+# CAMERA CLOUD
+# ESP32 -> A7680C -> 4G -> Azure Flask
+# ============================================================
+
+CAMERA_DIR = os.path.join("/tmp", "smartfleet_camera")
+os.makedirs(CAMERA_DIR, exist_ok=True)
+_CAMERA_META = {}
+
+def _safe_camera_device_id(value):
+    value = str(value or "").strip()
+    if not value:
+        return None
+    if not all(ch.isalnum() or ch in ("-", "_") for ch in value):
+        return None
+    return value[:80]
+
+@app.post("/api/camera/upload")
+def camera_upload():
+    device_id = _safe_camera_device_id(request.args.get("device_id"))
+    trip_text = str(request.args.get("trip_id", "")).strip()
+
+    if not device_id:
+        return jsonify(status="error", uploaded=False, reason="INVALID_DEVICE_ID"), 400
+
+    try:
+        trip_id = int(trip_text)
+    except (TypeError, ValueError):
+        return jsonify(status="error", uploaded=False, reason="INVALID_TRIP_ID"), 400
+
+    if trip_id <= 0:
+        return jsonify(status="error", uploaded=False, reason="INVALID_TRIP_ID"), 400
+
+    if (request.content_type or "").split(";")[0].strip().lower() != "image/jpeg":
+        return jsonify(status="error", uploaded=False,
+                       reason="CONTENT_TYPE_MUST_BE_IMAGE_JPEG"), 415
+
+    jpeg = request.get_data(cache=False)
+
+    if not jpeg or len(jpeg) > 2 * 1024 * 1024:
+        return jsonify(status="error", uploaded=False, reason="INVALID_JPEG_SIZE"), 400
+
+    if len(jpeg) < 4 or jpeg[:2] != b"\xff\xd8" or jpeg[-2:] != b"\xff\xd9":
+        return jsonify(status="error", uploaded=False, reason="INVALID_JPEG_DATA"), 400
+
+    path = os.path.join(CAMERA_DIR, f"{device_id}.jpg")
+    temp = path + ".tmp"
+
+    with open(temp, "wb") as f:
+        f.write(jpeg)
+    os.replace(temp, path)
+
+    captured_at = datetime.now(timezone.utc).isoformat()
+    _CAMERA_META[device_id] = {
+        "trip_id": trip_id,
+        "captured_at": captured_at,
+        "size_bytes": len(jpeg)
+    }
+
+    return jsonify(
+        status="ok",
+        uploaded=True,
+        device_id=device_id,
+        trip_id=trip_id,
+        size_bytes=len(jpeg),
+        captured_at=captured_at,
+        image_url=f"/api/camera/latest/{device_id}",
+        view_url=f"/camera/{device_id}"
+    ), 200
+
+@app.get("/api/camera/latest/<device_id>")
+def camera_latest(device_id):
+    device_id = _safe_camera_device_id(device_id)
+    if not device_id:
+        return jsonify(status="error", reason="INVALID_DEVICE_ID"), 400
+
+    path = os.path.join(CAMERA_DIR, f"{device_id}.jpg")
+    if not os.path.isfile(path):
+        return jsonify(status="ok", found=False, reason="NO_CAMERA_FRAME"), 404
+
+    with open(path, "rb") as f:
+        jpeg = f.read()
+
+    return Response(
+        jpeg,
+        mimetype="image/jpeg",
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache"
+        }
+    )
+
+@app.get("/api/camera/status/<device_id>")
+def camera_status(device_id):
+    device_id = _safe_camera_device_id(device_id)
+    if not device_id:
+        return jsonify(status="error", reason="INVALID_DEVICE_ID"), 400
+
+    meta = _CAMERA_META.get(device_id)
+    path = os.path.join(CAMERA_DIR, f"{device_id}.jpg")
+
+    if meta is None and not os.path.isfile(path):
+        return jsonify(status="ok", found=False, device_id=device_id), 200
+
+    if meta is None:
+        meta = {
+            "trip_id": None,
+            "captured_at": None,
+            "size_bytes": os.path.getsize(path)
+        }
+
+    return jsonify(
+        status="ok",
+        found=True,
+        device_id=device_id,
+        **meta,
+        image_url=f"/api/camera/latest/{device_id}",
+        view_url=f"/camera/{device_id}"
+    ), 200
+
+@app.get("/camera/<device_id>")
+def camera_page(device_id):
+    device_id = _safe_camera_device_id(device_id)
+    if not device_id:
+        return "Invalid device_id", 400
+
+    return f"""<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SmartFleet Camera - {device_id}</title>
+<style>
+body{{margin:0;background:#101214;color:#fff;font-family:Arial;text-align:center}}
+main{{max-width:900px;margin:auto;padding:24px}}
+img{{width:100%;max-width:800px;background:#222;border-radius:12px}}
+p{{color:#b8c0c8}}
+</style>
+</head>
+<body>
+<main>
+<h1>SmartFleet Camera</h1>
+<p>{device_id} · OV3660 → ESP32-S3 → A7680C → 4G → Azure</p>
+<p id="status">Waiting for camera...</p>
+<img id="cam" alt="Latest camera frame">
+</main>
+<script>
+const cam=document.getElementById("cam");
+const st=document.getElementById("status");
+async function refresh(){{
+ const t=Date.now();
+ cam.src="/api/camera/latest/{device_id}?t="+t;
+ try{{
+  const r=await fetch("/api/camera/status/{device_id}?t="+t,{{cache:"no-store"}});
+  const d=await r.json();
+  st.textContent=d.found
+   ? "Trip: "+(d.trip_id??"-")+" | "+(d.size_bytes??"-")+" bytes | "+(d.captured_at??"available")
+   : "Waiting for ESP32 upload...";
+ }}catch(e){{st.textContent="Camera status unavailable";}}
+}}
+refresh();
+setInterval(refresh,2000);
+</script>
+</body>
+</html>"""
 
 
 # ============================================================

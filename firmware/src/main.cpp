@@ -1,1431 +1,1244 @@
-// #include <Arduino.h>
-
-// // ============================================================
-// // CONFIG
-// // ============================================================
-
-// #include "config/pins.h"
-// #include "config/settings.h"
-
-
-// // ============================================================
-// // CORE
-// // ============================================================
-
-// #include "core/system_bits.h"
-// #include "core/globals.h"
-
-
-// // ============================================================
-// // DRIVERS
-// // ============================================================
-
-// #include "drivers/camera.h"
-// #include "drivers/lcd.h"
-// #include "drivers/rfid.h"
-
-
-// // ============================================================
-// // NETWORK
-// // ============================================================
-
-// #include "network/wifi_manager.h"
-
-
-// // ============================================================
-// // TASKS
-// // ============================================================
-
-// #include "tasks/task_gps.h"
-// #include "tasks/task_gsm.h"
-
-
-// // ============================================================
-// // SYSTEM STATE
-// // ============================================================
-
-// // Dùng để tránh xử lý cùng một GPS_READY nhiều lần
-// static bool gpsDisplayed = false;
-
-
-// // ============================================================
-// // RFID CONFIG
-// // ============================================================
-
-// // UID thẻ được phép
-// static const String AUTHORIZED_UID = "6B C8 99 8A";
-
-// // RFID có hoạt động hay không
-// static bool rfidReady = false;
-
-// // Thời điểm RFID hiển thị thông báo gần nhất
-// static unsigned long rfidDisplayStart = 0;
-
-// // RFID có đang chiếm LCD để hiển thị kết quả không
-// static bool rfidShowingMessage = false;
-
-// // Thời gian giữ thông báo RFID trên LCD
-// static const unsigned long RFID_MESSAGE_TIME = 2000;
-
-
-// // ============================================================
-// // SHOW GPS ON LCD
-// // ============================================================
-
-// void showGPSOnLCD()
-// {
-//     // Nếu GPS chưa hợp lệ
-//     if (!gpsValid)
-//     {
-//         lcdShowMessage(
-//             "GPS ERROR",
-//             "NO LOCATION"
-//         );
-
-//         return;
-//     }
-
-
-//     // LCD 16x2
-//     char line1[17];
-//     char line2[17];
-
-
-//     // Latitude
-//     snprintf(
-//         line1,
-//         sizeof(line1),
-//         "LAT:%.5f",
-//         gpsLat
-//     );
-
-
-//     // Longitude
-//     snprintf(
-//         line2,
-//         sizeof(line2),
-//         "LNG:%.5f",
-//         gpsLng
-//     );
-
-
-//     lcdShowMessage(
-//         line1,
-//         line2
-//     );
-// }
-
-
-// // ============================================================
-// // HANDLE RFID
-// // ============================================================
-
-// void handleRFID()
-// {
-//     // Nếu RFID init lỗi thì bỏ qua
-//     if (!rfidReady)
-//     {
-//         return;
-//     }
-
-
-//     String uid;
-
-
-//     // Không có thẻ mới
-//     if (!readRFID(uid))
-//     {
-//         return;
-//     }
-
-
-//     // ========================================================
-//     // CARD DETECTED
-//     // ========================================================
-
-//     Serial.println();
-//     Serial.println("========================================");
-//     Serial.println("[RFID] CARD DETECTED");
-//     Serial.println("========================================");
-
-//     Serial.print("[RFID] UID : ");
-//     Serial.println(uid);
-
-
-//     // ========================================================
-//     // AUTHORIZED CARD
-//     // ========================================================
-
-//     if (uid == AUTHORIZED_UID)
-//     {
-//         Serial.println(
-//             "[RFID] ACCESS GRANTED"
-//         );
-
-
-//         lcdShowMessage(
-//             "ACCESS GRANTED",
-//             "WELCOME"
-//         );
-//     }
-
-
-//     // ========================================================
-//     // UNKNOWN CARD
-//     // ========================================================
-
-//     else
-//     {
-//         Serial.println(
-//             "[RFID] ACCESS DENIED"
-//         );
-
-
-//         lcdShowMessage(
-//             "ACCESS DENIED",
-//             "UNKNOWN CARD"
-//         );
-//     }
-
-
-//     Serial.println("========================================");
-
-
-//     // Ghi nhận thời gian để sau 2 giây
-//     // trả LCD về trạng thái hệ thống
-//     rfidDisplayStart = millis();
-
-//     rfidShowingMessage = true;
-// }
-
-
-// // ============================================================
-// // HANDLE RFID LCD TIMEOUT
-// // ============================================================
-
-// void handleRFIDDisplayTimeout()
-// {
-//     if (!rfidShowingMessage)
-//     {
-//         return;
-//     }
-
-
-//     // Chưa đủ thời gian
-//     if (
-//         millis() - rfidDisplayStart
-//         < RFID_MESSAGE_TIME
-//     )
-//     {
-//         return;
-//     }
-
-
-//     rfidShowingMessage = false;
-
-
-//     // ========================================================
-//     // RESTORE LCD
-//     // ========================================================
-
-//     // Nếu GPS đã có vị trí
-//     if (gpsValid)
-//     {
-//         showGPSOnLCD();
-//     }
-
-//     // Nếu GPS chưa có vị trí
-//     else
-//     {
-//         lcdShowMessage(
-//             "SYSTEM READY",
-//             "SCAN RFID"
-//         );
-//     }
-// }
-
-
-// // ============================================================
-// // SETUP
-// // ============================================================
-
-// void setup()
-// {
-//     // ========================================================
-//     // SERIAL MONITOR
-//     // ========================================================
-
-//     Serial.begin(115200);
-
-//     delay(2000);
-
-
-//     Serial.println();
-//     Serial.println("========================================");
-//     Serial.println(" ESP32-S3 FULL SYSTEM");
-//     Serial.println("========================================");
-
-//     Serial.println("Camera : OV3660");
-//     Serial.println("LCD    : I2C GPIO1 / GPIO2");
-//     Serial.println("GPS    : UART1 GPIO41 / GPIO42");
-//     Serial.println("A7680C : UART2 GPIO21 / GPIO47");
-//     Serial.println("RFID   : RC522");
-
-//     Serial.println("========================================");
-
-
-//     // ========================================================
-//     // 1. EVENT GROUP
-//     // ========================================================
-
-//     Serial.println();
-//     Serial.println("----------------------------------------");
-//     Serial.println("[SYSTEM] EVENT GROUP");
-//     Serial.println("----------------------------------------");
-
-
-//     if (!initSystemEvents())
-//     {
-//         Serial.println(
-//             "[FATAL] EVENT GROUP FAILED"
-//         );
-
-
-//         while (1)
-//         {
-//             delay(1000);
-//         }
-//     }
-
-
-//     Serial.println(
-//         "[OK] EVENT GROUP"
-//     );
-
-
-//     // ========================================================
-//     // 2. LCD
-//     // ========================================================
-
-//     Serial.println();
-//     Serial.println("----------------------------------------");
-//     Serial.println("[SYSTEM] LCD INIT");
-//     Serial.println("----------------------------------------");
-
-
-//     if (!initLCD())
-//     {
-//         Serial.println(
-//             "[WARNING] LCD INIT FAILED"
-//         );
-//     }
-//     else
-//     {
-//         Serial.println(
-//             "[OK] LCD READY"
-//         );
-
-
-//         lcdShowMessage(
-//             "SYSTEM START",
-//             "PLEASE WAIT..."
-//         );
-//     }
-
-
-//     // ========================================================
-//     // 3. RFID RC522
-//     // ========================================================
-
-//     Serial.println();
-//     Serial.println("----------------------------------------");
-//     Serial.println("[SYSTEM] RFID INIT");
-//     Serial.println("----------------------------------------");
-
-
-//     if (!initRFID())
-//     {
-//         Serial.println(
-//             "[WARNING] RFID INIT FAILED"
-//         );
-
-
-//         rfidReady = false;
-
-
-//         lcdShowMessage(
-//             "RFID ERROR",
-//             "CHECK RC522"
-//         );
-
-
-//         delay(1500);
-//     }
-//     else
-//     {
-//         Serial.println(
-//             "[OK] RFID READY"
-//         );
-
-
-//         rfidReady = true;
-
-
-//         lcdShowMessage(
-//             "RFID READY",
-//             "SYSTEM START"
-//         );
-
-
-//         delay(1000);
-//     }
-
-
-//     // ========================================================
-//     // 4. CAMERA
-//     // ========================================================
-
-//     Serial.println();
-//     Serial.println("----------------------------------------");
-//     Serial.println("[SYSTEM] CAMERA INIT");
-//     Serial.println("----------------------------------------");
-
-
-//     if (!initCamera())
-//     {
-//         Serial.println(
-//             "[WARNING] CAMERA INIT FAILED"
-//         );
-
-
-//         lcdShowMessage(
-//             "CAMERA ERROR",
-//             "CHECK CAMERA"
-//         );
-//     }
-//     else
-//     {
-//         Serial.println(
-//             "[OK] CAMERA READY"
-//         );
-
-
-//         // Báo Camera đã sẵn sàng
-//         xEventGroupSetBits(
-//             systemEvents,
-//             BIT_CAMERA_READY
-//         );
-//     }
-
-
-//     // ========================================================
-//     // 5. WIFI
-//     // ========================================================
-
-//     Serial.println();
-//     Serial.println("----------------------------------------");
-//     Serial.println("[SYSTEM] WIFI CONNECT");
-//     Serial.println("----------------------------------------");
-
-
-//     if (!initWiFi())
-//     {
-//         Serial.println(
-//             "[WARNING] WIFI FAILED"
-//         );
-
-
-//         lcdShowMessage(
-//             "WIFI ERROR",
-//             "OFFLINE MODE"
-//         );
-//     }
-//     else
-//     {
-//         Serial.println(
-//             "[OK] WIFI CONNECTED"
-//         );
-
-
-//         // Báo Wi-Fi đã sẵn sàng
-//         xEventGroupSetBits(
-//             systemEvents,
-//             BIT_WIFI_READY
-//         );
-
-
-//         // ====================================================
-//         // CAMERA WEB SERVER
-//         // ====================================================
-
-//         Serial.println();
-
-//         Serial.println(
-//             "[SYSTEM] START CAMERA SERVER"
-//         );
-
-
-//         if (startCameraServer())
-//         {
-//             Serial.println(
-//                 "[OK] CAMERA SERVER STARTED"
-//             );
-//         }
-//         else
-//         {
-//             Serial.println(
-//                 "[WARNING] CAMERA SERVER FAILED"
-//             );
-//         }
-//     }
-
-
-//     // ========================================================
-//     // 6. CREATE GPS TASK
-//     // ========================================================
-
-//     Serial.println();
-//     Serial.println("----------------------------------------");
-//     Serial.println("[SYSTEM] CREATE GPS TASK");
-//     Serial.println("----------------------------------------");
-
-
-//     if (!createTaskGPS())
-//     {
-//         Serial.println(
-//             "[WARNING] GPS TASK FAILED"
-//         );
-//     }
-//     else
-//     {
-//         Serial.println(
-//             "[OK] GPS TASK CREATED"
-//         );
-//     }
-
-
-//     // ========================================================
-//     // 7. CREATE GSM TASK
-//     // ========================================================
-
-//     Serial.println();
-//     Serial.println("----------------------------------------");
-//     Serial.println("[SYSTEM] CREATE GSM TASK");
-//     Serial.println("----------------------------------------");
-
-
-//     if (!createTaskGSM())
-//     {
-//         Serial.println(
-//             "[WARNING] GSM TASK FAILED"
-//         );
-//     }
-//     else
-//     {
-//         Serial.println(
-//             "[OK] GSM TASK CREATED"
-//         );
-//     }
-
-
-//     // ========================================================
-//     // 8. WAIT FOR TASK INITIALIZATION
-//     // ========================================================
-
-//     Serial.println();
-//     Serial.println("----------------------------------------");
-//     Serial.println("[SYSTEM] WAIT TASKS");
-//     Serial.println("----------------------------------------");
-
-
-//     lcdShowMessage(
-//         "GPS + GSM",
-//         "STARTING..."
-//     );
-
-
-//     // Cho GPS + A7680C thời gian khởi động
-//     delay(8000);
-
-
-//     // ========================================================
-//     // 9. REQUEST GPS
-//     // ========================================================
-
-//     Serial.println();
-//     Serial.println("========================================");
-//     Serial.println("[MAIN] REQUEST GPS");
-//     Serial.println("========================================");
-
-
-//     // Cho phép xử lý GPS mới
-//     gpsDisplayed = false;
-
-
-//     // Xóa trạng thái GPS cũ
-//     xEventGroupClearBits(
-//         systemEvents,
-//         BIT_GPS_READY
-//     );
-
-
-//     // Yêu cầu task GPS lấy vị trí
-//     xEventGroupSetBits(
-//         systemEvents,
-//         BIT_NEED_GPS
-//     );
-
-
-//     // ========================================================
-//     // KHÔNG REQUEST GSM Ở ĐÂY
-//     // ========================================================
-//     //
-//     // GSM chỉ được yêu cầu sau khi GPS có tọa độ hợp lệ.
-//     //
-//     // ========================================================
-
-
-//     Serial.println();
-//     Serial.println("========================================");
-//     Serial.println(" SYSTEM INITIALIZATION COMPLETE");
-//     Serial.println("========================================");
-
-
-//     // Nếu RFID hoạt động
-//     if (rfidReady)
-//     {
-//         lcdShowMessage(
-//             "SYSTEM READY",
-//             "SCAN RFID"
-//         );
-//     }
-// }
-
-
-// // ============================================================
-// // LOOP
-// // ============================================================
-
-// void loop()
-// {
-//     // ========================================================
-//     // 1. RFID
-//     // ========================================================
-
-//     // Kiểm tra thẻ liên tục
-//     handleRFID();
-
-
-//     // Kiểm tra thời gian hiển thị thông báo RFID
-//     handleRFIDDisplayTimeout();
-
-
-//     // ========================================================
-//     // 2. READ EVENT BITS
-//     // ========================================================
-
-//     EventBits_t bits =
-//         xEventGroupGetBits(
-//             systemEvents
-//         );
-
-
-//     // ========================================================
-//     // 3. GPS READY EVENT
-//     // ========================================================
-
-//     if (
-//         (bits & BIT_GPS_READY) &&
-//         !gpsDisplayed
-//     )
-//     {
-//         // Đánh dấu đã xử lý GPS này
-//         gpsDisplayed = true;
-
-
-//         Serial.println();
-//         Serial.println("========================================");
-//         Serial.println("[MAIN] GPS READY");
-//         Serial.println("========================================");
-
-
-//         // ====================================================
-//         // GPS VALID
-//         // ====================================================
-
-//         if (gpsValid)
-//         {
-//             // ================================================
-//             // PRINT LATITUDE
-//             // ================================================
-
-//             Serial.print(
-//                 "LAT : "
-//             );
-
-//             Serial.println(
-//                 gpsLat,
-//                 6
-//             );
-
-
-//             // ================================================
-//             // PRINT LONGITUDE
-//             // ================================================
-
-//             Serial.print(
-//                 "LNG : "
-//             );
-
-//             Serial.println(
-//                 gpsLng,
-//                 6
-//             );
-
-
-//             // ================================================
-//             // PRINT SATELLITES
-//             // ================================================
-
-//             Serial.print(
-//                 "SAT : "
-//             );
-
-//             Serial.println(
-//                 gpsSatellites
-//             );
-
-
-//             // ================================================
-//             // GOOGLE MAPS LINK
-//             // ================================================
-
-//             Serial.println();
-
-//             Serial.println(
-//                 "Google Maps:"
-//             );
-
-
-//             Serial.print(
-//                 "https://maps.google.com/?q="
-//             );
-
-//             Serial.print(
-//                 gpsLat,
-//                 6
-//             );
-
-//             Serial.print(",");
-
-//             Serial.println(
-//                 gpsLng,
-//                 6
-//             );
-
-
-//             // ================================================
-//             // SHOW LOCATION ON LCD
-//             // ================================================
-
-//             // Không ghi đè LCD nếu RFID đang hiển thị
-//             if (!rfidShowingMessage)
-//             {
-//                 showGPSOnLCD();
-//             }
-
-
-//             // ================================================
-//             // REQUEST GSM
-//             // ================================================
-//             //
-//             // Chỉ khi GPS hợp lệ mới yêu cầu taskGSM.
-//             //
-//             // taskGSM sẽ nhận BIT_NEED_SIM
-//             // và gửi SMS chứa GPS.
-//             //
-//             // ================================================
-
-//             Serial.println();
-//             Serial.println("----------------------------------------");
-//             Serial.println("[MAIN] GPS VALID");
-//             Serial.println("[MAIN] REQUEST GSM SEND GPS SMS");
-//             Serial.println("----------------------------------------");
-
-
-//             xEventGroupSetBits(
-//                 systemEvents,
-//                 BIT_NEED_SIM
-//             );
-//         }
-
-
-//         // ====================================================
-//         // GPS INVALID
-//         // ====================================================
-
-//         else
-//         {
-//             Serial.println(
-//                 "[MAIN] GPS INVALID"
-//             );
-
-
-//             // Không ghi đè thông báo RFID
-//             if (!rfidShowingMessage)
-//             {
-//                 lcdShowMessage(
-//                     "GPS ERROR",
-//                     "NO LOCATION"
-//                 );
-//             }
-
-
-//             // Không set BIT_NEED_SIM
-//             // vì không muốn gửi SMS có tọa độ sai.
-//         }
-
-
-//         // ====================================================
-//         // CLEAR GPS READY
-//         // ====================================================
-
-//         xEventGroupClearBits(
-//             systemEvents,
-//             BIT_GPS_READY
-//         );
-
-
-//         Serial.println();
-//         Serial.println("========================================");
-//         Serial.println("[MAIN] GPS EVENT COMPLETE");
-//         Serial.println("========================================");
-//     }
-
-
-//     // ========================================================
-//     // 4. FREE CPU
-//     // ========================================================
-
-//     vTaskDelay(
-//         pdMS_TO_TICKS(50)
-//     );
-// }
-
 #include <Arduino.h>
 
-// ============================================================
-// A7680C UART
-// ============================================================
+#include "drivers/gsm.h"
+#include "drivers/gps.h"
+#include "drivers/rfid.h"
+#include "drivers/keypad.h"
+#include "drivers/lcd.h"
+#include "drivers/camera.h"
 
-#define GSM_RX_PIN 21
-#define GSM_TX_PIN 47
-#define GSM_BAUD   115200
-
-HardwareSerial modem(2);
-
-
-// ============================================================
-// APN
-//
-// ĐỂ TRỐNG trước.
-// Nếu mạng của bạn yêu cầu APN cụ thể, điền APN chính thức
-// của SIM vào đây.
-//
-// Ví dụ:
-// const char *APN = "your_apn";
-//
-// ============================================================
-
-const char *APN = "";
+#include "core/globals.h"
 
 
 // ============================================================
-// TEST HTTP URL
-//
-// Dùng HTTP trước để xác nhận data path.
-// Sau khi PASS mới chuyển sang HTTPS/Azure.
+// DEVICE
 // ============================================================
 
-const char *TEST_URL = "http://example.com/";
+static const char *DEVICE_ID = "TRUCK_001";
 
 
 // ============================================================
-// CLEAR UART BUFFER
+// AUTH STATE
 // ============================================================
 
-void clearModemBuffer()
+enum AuthState
 {
-    while (modem.available())
-    {
-        modem.read();
-    }
-}
+    WAIT_RFID,
+    WAIT_PIN,
+    SENDING_AZURE
+};
+
+static AuthState authState = WAIT_RFID;
 
 
 // ============================================================
-// READ MODEM RESPONSE
+// AUTH DATA
 // ============================================================
 
-String readModemResponse(uint32_t timeoutMs)
+static String currentRFID = "";
+static String currentPIN = "";
+
+
+// ============================================================
+// DRIVER / VEHICLE
+// ============================================================
+
+static String currentDriverCode = "";
+static String currentDriverName = "";
+static String currentVehicleCode = "";
+
+
+// ============================================================
+// CURRENT TRIP
+// ============================================================
+
+static bool tripActive = false;
+
+static long currentTripId = 0;
+
+static String currentTripCode = "";
+static String currentTripStatus = "";
+static String currentDestination = "";
+
+
+// ============================================================
+// GPS SETTINGS
+// ============================================================
+
+static const uint32_t GPS_UPLOAD_INTERVAL_MS = 15000;
+static const uint32_t GPS_READ_TIMEOUT_MS = 2000;
+
+static uint32_t lastGPSUploadTime = 0;
+static const uint32_t CAMERA_UPLOAD_INTERVAL_MS = 10000;
+static uint32_t lastCameraUploadTime = 0;
+
+
+
+// ============================================================
+// CAMERA STATE
+// ============================================================
+
+static bool cameraInitialized = false;
+
+
+// ============================================================
+// RESET AUTH
+// ============================================================
+
+static void resetAuthSession()
 {
-    String response = "";
+    currentRFID = "";
+    currentPIN = "";
 
-    uint32_t startTime = millis();
-
-    while (millis() - startTime < timeoutMs)
-    {
-        while (modem.available())
-        {
-            char c = modem.read();
-
-            response += c;
-
-            Serial.write(c);
-
-            // Có dữ liệu thì cho modem thêm thời gian trả phần còn lại
-            startTime = millis();
-        }
-
-        delay(5);
-    }
-
-    return response;
-}
-
-
-// ============================================================
-// SEND AT
-// ============================================================
-
-String sendAT(
-    const String &command,
-    uint32_t timeoutMs = 2000
-)
-{
-    clearModemBuffer();
+    authState = WAIT_RFID;
 
     Serial.println();
-    Serial.println("--------------------------------");
-    Serial.print(">> ");
-    Serial.println(command);
-
-    modem.println(command);
-
-    String response =
-        readModemResponse(timeoutMs);
-
-    Serial.println();
-
-    return response;
-}
-
-
-// ============================================================
-// CHECK RESPONSE
-// ============================================================
-
-bool responseContains(
-    const String &response,
-    const char *text
-)
-{
-    return response.indexOf(text) >= 0;
-}
-
-
-// ============================================================
-// WAIT FOR MODEM
-// ============================================================
-
-bool waitForModem()
-{
-    Serial.println();
     Serial.println("================================");
-    Serial.println(" STEP 1 - MODEM");
+    Serial.println(" WAITING FOR RFID");
     Serial.println("================================");
 
-    for (int attempt = 1; attempt <= 5; attempt++)
-    {
-        Serial.print("[MODEM] Attempt ");
-        Serial.println(attempt);
-
-        String response =
-            sendAT("AT", 1000);
-
-        if (responseContains(response, "OK"))
-        {
-            Serial.println("[PASS] MODEM RESPONDING");
-
-            return true;
-        }
-
-        delay(1000);
-    }
-
-    Serial.println("[FAIL] MODEM NOT RESPONDING");
-
-    return false;
-}
-
-
-// ============================================================
-// CHECK SIM
-// ============================================================
-
-bool checkSIM()
-{
-    Serial.println();
-    Serial.println("================================");
-    Serial.println(" STEP 2 - SIM");
-    Serial.println("================================");
-
-    String response =
-        sendAT("AT+CPIN?", 2000);
-
-    if (responseContains(response, "READY"))
-    {
-        Serial.println("[PASS] SIM READY");
-
-        return true;
-    }
-
-    Serial.println("[FAIL] SIM NOT READY");
-
-    return false;
-}
-
-
-// ============================================================
-// CHECK SIGNAL
-// ============================================================
-
-void checkSignal()
-{
-    Serial.println();
-    Serial.println("================================");
-    Serial.println(" STEP 3 - SIGNAL");
-    Serial.println("================================");
-
-    sendAT(
-        "AT+CSQ",
-        2000
+    lcdShowMessage(
+        "Scan RFID",
+        "Waiting..."
     );
 }
 
 
 // ============================================================
-// CHECK NETWORK REGISTRATION
+// RESET TRIP
 // ============================================================
 
-bool checkNetwork()
+static void resetTripSession()
+{
+    tripActive = false;
+
+    currentTripId = 0;
+
+    currentTripCode = "";
+    currentTripStatus = "";
+    currentDestination = "";
+
+    lastGPSUploadTime = 0;
+    lastCameraUploadTime = 0;
+}
+
+
+// ============================================================
+// PRINT CURRENT TRIP
+// ============================================================
+
+static void printCurrentTrip()
 {
     Serial.println();
     Serial.println("================================");
-    Serial.println(" STEP 4 - LTE NETWORK");
+    Serial.println(" CURRENT TRIP");
     Serial.println("================================");
 
-    for (int attempt = 1; attempt <= 10; attempt++)
+    Serial.print("Trip ID     : ");
+    Serial.println(currentTripId);
+
+    Serial.print("Trip Code   : ");
+    Serial.println(currentTripCode);
+
+    Serial.print("Status      : ");
+    Serial.println(currentTripStatus);
+
+    Serial.print("Destination : ");
+    Serial.println(currentDestination);
+
+    Serial.println("================================");
+}
+
+
+// ============================================================
+// ACTIVATE TRIP
+// ============================================================
+
+static void activateTrip(
+    long tripId,
+    const String &tripCode,
+    const String &tripStatus,
+    const String &destination
+)
+{
+    currentTripId = tripId;
+    currentTripCode = tripCode;
+    currentTripStatus = tripStatus;
+    currentDestination = destination;
+
+    tripActive = true;
+
+    lastGPSUploadTime = 0;
+
+    Serial.println();
+    Serial.println("================================");
+    Serial.println(" TRIP ACTIVE");
+    Serial.println("================================");
+
+    Serial.print("Driver      : ");
+    Serial.println(currentDriverCode);
+
+    Serial.print("Vehicle     : ");
+    Serial.println(currentVehicleCode);
+
+    Serial.print("Trip        : ");
+    Serial.println(currentTripCode);
+
+    Serial.print("Status      : ");
+    Serial.println(currentTripStatus);
+
+    Serial.print("Destination : ");
+    Serial.println(currentDestination);
+
+    Serial.println("================================");
+
+    lcdShowMessage(
+        "Trip Active",
+        currentTripCode.c_str()
+    );
+
+    // Flask camera endpoint is now implemented.
+    // Upload immediately on the next loop iteration.
+    lastCameraUploadTime = 0;
+}
+
+
+// ============================================================
+// CAMERA TEST
+// ============================================================
+
+static void testCameraCapture()
+{
+    Serial.println();
+    Serial.println("================================");
+    Serial.println(" CAMERA CAPTURE TEST");
+    Serial.println("================================");
+
+    if (!cameraInitialized)
     {
-        String response =
-            sendAT(
-                "AT+CEREG?",
-                2000
-            );
-
-        // Registered home
-        if (
-            response.indexOf(",1") >= 0
-        )
-        {
-            Serial.println(
-                "[PASS] REGISTERED HOME NETWORK"
-            );
-
-            return true;
-        }
-
-        // Registered roaming
-        if (
-            response.indexOf(",5") >= 0
-        )
-        {
-            Serial.println(
-                "[PASS] REGISTERED ROAMING"
-            );
-
-            return true;
-        }
-
         Serial.println(
-            "[WAIT] Network registration..."
+            "[CAMERA] Camera is not initialized."
         );
 
-        delay(2000);
+        Serial.println("================================");
+
+        return;
+    }
+
+
+    if (!isCameraReady())
+    {
+        Serial.println(
+            "[CAMERA] Camera is not ready."
+        );
+
+        Serial.println("================================");
+
+        return;
+    }
+
+
+    // --------------------------------------------------------
+    // Capture JPEG
+    // --------------------------------------------------------
+
+    camera_fb_t *frame =
+        captureCameraFrame();
+
+
+    if (frame == nullptr)
+    {
+        Serial.println(
+            "[CAMERA] Capture failed."
+        );
+
+        Serial.println("================================");
+
+        return;
+    }
+
+
+    // --------------------------------------------------------
+    // Print frame information
+    // --------------------------------------------------------
+
+    Serial.println(
+        "[OK] JPEG captured"
+    );
+
+
+    Serial.print(
+        "[CAMERA] Width  : "
+    );
+
+    Serial.println(
+        frame->width
+    );
+
+
+    Serial.print(
+        "[CAMERA] Height : "
+    );
+
+    Serial.println(
+        frame->height
+    );
+
+
+    Serial.print(
+        "[CAMERA] Size   : "
+    );
+
+    Serial.print(
+        frame->len
+    );
+
+    Serial.println(
+        " bytes"
+    );
+
+
+    // --------------------------------------------------------
+    // IMPORTANT
+    // --------------------------------------------------------
+    //
+    // Hiện tại CHƯA upload Azure.
+    //
+    // Bước tiếp theo gsm.cpp sẽ sử dụng:
+    //
+    // frame->buf
+    // frame->len
+    //
+    // để upload JPEG qua A7680C.
+    //
+    // --------------------------------------------------------
+
+
+    // --------------------------------------------------------
+    // Release framebuffer
+    // --------------------------------------------------------
+
+    releaseCameraFrame(frame);
+
+
+    Serial.println(
+        "[OK] Camera test complete."
+    );
+
+    Serial.println("================================");
+}
+
+
+
+
+// ============================================================
+// UPLOAD ONE CAMERA SNAPSHOT
+// ============================================================
+//
+// This helper is intentionally NOT called automatically yet.
+// Enable it only after Flask implements:
+//
+// POST /api/camera/upload
+//
+// ============================================================
+
+static bool uploadCameraSnapshot()
+{
+    if (!cameraInitialized || !isCameraReady())
+    {
+        Serial.println(
+            "[CAMERA CLOUD] Camera not ready."
+        );
+
+        return false;
+    }
+
+    camera_fb_t *frame =
+        captureCameraFrame();
+
+    if (frame == nullptr)
+    {
+        Serial.println(
+            "[CAMERA CLOUD] Capture failed."
+        );
+
+        return false;
+    }
+
+    // The framebuffer remains valid during the synchronous
+    // modem upload. It is always returned afterwards.
+    CameraUploadResult uploadResult =
+        postCameraImage(
+            DEVICE_ID,
+            currentTripId,
+            frame->buf,
+            frame->len
+        );
+
+    releaseCameraFrame(frame);
+
+    if (!uploadResult.requestOK)
+    {
+        Serial.print(
+            "[CAMERA CLOUD] Request failed: "
+        );
+
+        Serial.println(
+            uploadResult.reason
+        );
+
+        return false;
+    }
+
+    if (!uploadResult.uploaded)
+    {
+        Serial.print(
+            "[CAMERA CLOUD] Upload not confirmed: "
+        );
+
+        Serial.println(
+            uploadResult.reason
+        );
+
+        return false;
     }
 
     Serial.println(
-        "[FAIL] NOT REGISTERED TO LTE NETWORK"
+        "[CAMERA CLOUD] Snapshot uploaded."
     );
 
-    return false;
+    return true;
 }
 
 
+
 // ============================================================
-// CHECK OPERATOR
+// PERIODIC CAMERA CLOUD UPLOAD
 // ============================================================
 
-void checkOperator()
+static void handleCameraCloudUpload()
 {
+    if (!tripActive || currentTripId <= 0)
+        return;
+
+    if (!cameraInitialized || !isCameraReady())
+        return;
+
+    const uint32_t now = millis();
+
+    if (
+        lastCameraUploadTime != 0 &&
+        (uint32_t)(now - lastCameraUploadTime) < CAMERA_UPLOAD_INTERVAL_MS
+    )
+        return;
+
+    lastCameraUploadTime = now;
+
     Serial.println();
     Serial.println("================================");
-    Serial.println(" STEP 5 - OPERATOR");
+    Serial.println(" CAMERA -> A7680C -> 4G -> AZURE");
     Serial.println("================================");
 
-    sendAT(
-        "AT+COPS?",
-        3000
-    );
-}
-
-
-// ============================================================
-// CHECK PACKET SERVICE
-// ============================================================
-
-void checkPacketService()
-{
-    Serial.println();
-    Serial.println("================================");
-    Serial.println(" STEP 6 - PACKET SERVICE");
-    Serial.println("================================");
-
-    sendAT(
-        "AT+CGATT?",
-        3000
-    );
-
-    sendAT(
-        "AT+CGDCONT?",
-        3000
-    );
-}
-
-
-// ============================================================
-// CONFIGURE APN
-// ============================================================
-
-void configureAPN()
-{
-    Serial.println();
-    Serial.println("================================");
-    Serial.println(" STEP 7 - APN");
-    Serial.println("================================");
-
-    if (strlen(APN) == 0)
+    if (!uploadCameraSnapshot())
     {
+        Serial.println("[CAMERA CLOUD] Upload failed; retry next interval.");
+    }
+}
+
+// ============================================================
+// HANDLE AUTH GRANTED
+// ============================================================
+
+static void handleAuthGranted(
+    const VehicleAuthResult &auth
+)
+{
+    currentDriverCode =
+        auth.driverCode;
+
+    currentDriverName =
+        auth.fullName;
+
+    currentVehicleCode =
+        auth.vehicleCode;
+
+
+    Serial.println();
+    Serial.println("================================");
+    Serial.println(" AUTH GRANTED");
+    Serial.println("================================");
+
+    Serial.print("DRIVER : ");
+    Serial.println(currentDriverCode);
+
+    Serial.print("NAME   : ");
+    Serial.println(currentDriverName);
+
+    Serial.print("VEHICLE: ");
+    Serial.println(currentVehicleCode);
+
+
+    // ========================================================
+    // NO TRIP ASSIGNED
+    // ========================================================
+
+    if (
+        !auth.hasTrip ||
+        auth.tripId <= 0
+    )
+    {
+        Serial.println();
+
         Serial.println(
-            "[INFO] APN variable is empty."
+            "[TRIP] No assigned trip."
+        );
+
+
+        lcdShowMessage(
+            "Access Granted",
+            "No trip"
+        );
+
+
+        resetTripSession();
+
+        delay(1500);
+
+        resetAuthSession();
+
+        return;
+    }
+
+
+    // ========================================================
+    // COPY TRIP DATA
+    // ========================================================
+
+    currentTripId =
+        auth.tripId;
+
+    currentTripCode =
+        auth.tripCode;
+
+    currentTripStatus =
+        auth.tripStatus;
+
+    currentDestination =
+        auth.destinationName;
+
+
+    printCurrentTrip();
+
+
+    // ========================================================
+    // EXISTING ACTIVE TRIP
+    // ========================================================
+
+    if (
+        currentTripStatus ==
+        "IN_PROGRESS"
+    )
+    {
+        Serial.println();
+
+        Serial.println(
+            "[TRIP] Existing active trip detected."
         );
 
         Serial.println(
-            "[INFO] Keeping SIM/modem PDP configuration."
+            "[TRIP] Restoring trip session."
+        );
+
+
+        activateTrip(
+            currentTripId,
+            currentTripCode,
+            currentTripStatus,
+            currentDestination
+        );
+
+
+        currentPIN = "";
+
+        authState = WAIT_RFID;
+
+        return;
+    }
+
+
+    // ========================================================
+    // START NEW TRIP
+    // ========================================================
+
+    if (
+        currentTripStatus == "ASSIGNED" ||
+        currentTripStatus == "READY"
+    )
+    {
+        Serial.println();
+
+        Serial.println(
+            "[TRIP] Starting trip..."
+        );
+
+
+        lcdShowMessage(
+            "Starting Trip",
+            currentTripCode.c_str()
+        );
+
+
+        TripStartResult startResult =
+            postStartTrip(
+                DEVICE_ID,
+                currentTripId
+            );
+
+
+        // ----------------------------------------------------
+        // REQUEST FAILED
+        // ----------------------------------------------------
+
+        if (!startResult.requestOK)
+        {
+            Serial.println();
+
+            Serial.println(
+                "[TRIP ERROR] Request failed."
+            );
+
+            Serial.print(
+                "[TRIP ERROR] Reason: "
+            );
+
+            Serial.println(
+                startResult.reason
+            );
+
+
+            lcdShowMessage(
+                "Trip Error",
+                startResult.reason.c_str()
+            );
+
+
+            resetTripSession();
+
+            delay(2000);
+
+            resetAuthSession();
+
+            return;
+        }
+
+
+        // ----------------------------------------------------
+        // START REJECTED
+        // ----------------------------------------------------
+
+        if (
+            !startResult.started &&
+            !startResult.alreadyStarted
+        )
+        {
+            Serial.println();
+
+            Serial.println(
+                "[TRIP ERROR] Start rejected."
+            );
+
+            Serial.print(
+                "[TRIP ERROR] Reason: "
+            );
+
+            Serial.println(
+                startResult.reason
+            );
+
+
+            lcdShowMessage(
+                "Start Rejected",
+                startResult.reason.c_str()
+            );
+
+
+            resetTripSession();
+
+            delay(2000);
+
+            resetAuthSession();
+
+            return;
+        }
+
+
+        // ----------------------------------------------------
+        // UPDATE TRIP INFORMATION
+        // ----------------------------------------------------
+
+        currentTripId =
+            startResult.tripId;
+
+        currentTripCode =
+            startResult.tripCode;
+
+        currentTripStatus =
+            startResult.tripStatus;
+
+        currentDestination =
+            startResult.destinationName;
+
+
+        if (
+            startResult.driverCode.length() > 0
+        )
+        {
+            currentDriverCode =
+                startResult.driverCode;
+        }
+
+
+        if (
+            startResult.fullName.length() > 0
+        )
+        {
+            currentDriverName =
+                startResult.fullName;
+        }
+
+
+        if (
+            startResult.vehicleCode.length() > 0
+        )
+        {
+            currentVehicleCode =
+                startResult.vehicleCode;
+        }
+
+
+        activateTrip(
+            currentTripId,
+            currentTripCode,
+            currentTripStatus,
+            currentDestination
+        );
+
+
+        currentPIN = "";
+
+        authState = WAIT_RFID;
+
+        return;
+    }
+
+
+    // ========================================================
+    // INVALID TRIP STATUS
+    // ========================================================
+
+    Serial.println();
+
+    Serial.print(
+        "[TRIP] Cannot start trip with status: "
+    );
+
+    Serial.println(
+        currentTripStatus
+    );
+
+
+    lcdShowMessage(
+        "Trip Status",
+        currentTripStatus.c_str()
+    );
+
+
+    resetTripSession();
+
+    delay(2000);
+
+    resetAuthSession();
+}
+
+
+// ============================================================
+// HANDLE RFID
+// ============================================================
+
+static void handleRFID()
+{
+    String uid = "";
+
+
+    if (!readRFID(uid))
+    {
+        return;
+    }
+
+
+    if (uid.length() == 0)
+    {
+        return;
+    }
+
+
+    currentRFID = uid;
+
+    currentPIN = "";
+
+
+    Serial.println();
+    Serial.println("================================");
+    Serial.println(" RFID DETECTED");
+    Serial.println("================================");
+
+    Serial.print("UID: ");
+    Serial.println(currentRFID);
+
+
+    lcdShowMessage(
+        "RFID OK",
+        "Enter PIN"
+    );
+
+
+    authState = WAIT_PIN;
+}
+
+
+// ============================================================
+// HANDLE PIN
+// ============================================================
+
+static void handlePIN()
+{
+    char key =
+        readKeypad();
+
+
+    if (key == '\0')
+    {
+        return;
+    }
+
+
+    // ========================================================
+    // CANCEL
+    // ========================================================
+
+    if (key == 'C')
+    {
+        Serial.println();
+
+        Serial.println(
+            "[AUTH] Cancelled."
+        );
+
+
+        currentPIN = "";
+
+        resetAuthSession();
+
+        return;
+    }
+
+
+    // ========================================================
+    // DELETE
+    // ========================================================
+
+    if (key == '*')
+    {
+        if (
+            currentPIN.length() > 0
+        )
+        {
+            currentPIN.remove(
+                currentPIN.length() - 1
+            );
+        }
+
+
+        Serial.print(
+            "[PIN] Length: "
+        );
+
+        Serial.println(
+            currentPIN.length()
+        );
+
+
+        String masked = "";
+
+
+        for (
+            size_t i = 0;
+            i < currentPIN.length();
+            i++
+        )
+        {
+            masked += "*";
+        }
+
+
+        lcdShowMessage(
+            "Enter PIN",
+            masked.c_str()
+        );
+
+
+        return;
+    }
+
+
+    // ========================================================
+    // SUBMIT
+    // ========================================================
+
+    if (key == '#')
+    {
+        if (
+            currentPIN.length() == 0
+        )
+        {
+            Serial.println(
+                "[PIN] PIN is empty."
+            );
+
+            return;
+        }
+
+
+        authState =
+            SENDING_AZURE;
+
+
+        Serial.println();
+
+        Serial.println(
+            "[AUTH] Sending authentication..."
+        );
+
+
+        lcdShowMessage(
+            "Checking...",
+            "Please wait"
+        );
+
+
+        VehicleAuthResult auth =
+            postVehicleAuth(
+                DEVICE_ID,
+                currentRFID,
+                currentPIN
+            );
+
+
+        // ----------------------------------------------------
+        // SECURITY:
+        // Clear PIN immediately after request
+        // ----------------------------------------------------
+
+        currentPIN = "";
+
+
+        // ----------------------------------------------------
+        // NETWORK ERROR
+        // ----------------------------------------------------
+
+        if (!auth.requestOK)
+        {
+            Serial.println();
+
+            Serial.println("================================");
+            Serial.println(" AUTH REQUEST FAILED");
+            Serial.println("================================");
+
+            Serial.print("Reason: ");
+            Serial.println(auth.reason);
+
+
+            lcdShowMessage(
+                "Network Error",
+                auth.reason.c_str()
+            );
+
+
+            delay(2000);
+
+            resetAuthSession();
+
+            return;
+        }
+
+
+        // ----------------------------------------------------
+        // ACCESS DENIED
+        // ----------------------------------------------------
+
+        if (!auth.granted)
+        {
+            Serial.println();
+
+            Serial.println("================================");
+            Serial.println(" ACCESS DENIED");
+            Serial.println("================================");
+
+            Serial.print("Reason: ");
+            Serial.println(auth.reason);
+
+
+            lcdShowMessage(
+                "Access Denied",
+                auth.reason.c_str()
+            );
+
+
+            delay(2000);
+
+            resetAuthSession();
+
+            return;
+        }
+
+
+        // ----------------------------------------------------
+        // ACCESS GRANTED
+        // ----------------------------------------------------
+
+        handleAuthGranted(auth);
+
+        return;
+    }
+
+
+    // ========================================================
+    // DIGIT INPUT
+    // ========================================================
+
+    if (
+        key >= '0' &&
+        key <= '9'
+    )
+    {
+        if (
+            currentPIN.length() >= 8
+        )
+        {
+            return;
+        }
+
+
+        currentPIN += key;
+
+
+        // Never print PIN itself.
+
+        Serial.print(
+            "[PIN] Length: "
+        );
+
+        Serial.println(
+            currentPIN.length()
+        );
+
+
+        String masked = "";
+
+
+        for (
+            size_t i = 0;
+            i < currentPIN.length();
+            i++
+        )
+        {
+            masked += "*";
+        }
+
+
+        lcdShowMessage(
+            "Enter PIN",
+            masked.c_str()
+        );
+    }
+}
+
+
+// ============================================================
+// GPS TRACKING
+// ============================================================
+
+static void handleGPSTracking()
+{
+    if (!tripActive)
+    {
+        return;
+    }
+
+
+    if (currentTripId <= 0)
+    {
+        return;
+    }
+
+
+    const uint32_t now =
+        millis();
+
+
+    if (
+        lastGPSUploadTime != 0 &&
+        (uint32_t)(
+            now - lastGPSUploadTime
+        ) < GPS_UPLOAD_INTERVAL_MS
+    )
+    {
+        return;
+    }
+
+
+    // Avoid starting another upload immediately
+    // if the request is slow.
+
+    lastGPSUploadTime = now;
+
+
+    Serial.println();
+    Serial.println("================================");
+    Serial.println(" GPS TRACKING");
+    Serial.println("================================");
+
+    Serial.print("Trip ID: ");
+    Serial.println(currentTripId);
+
+
+    bool gpsOK =
+        readGPS(
+            GPS_READ_TIMEOUT_MS
+        );
+
+
+    if (!gpsOK)
+    {
+        Serial.println(
+            "[GPS] No valid location."
+        );
+
+        Serial.println(
+            "[GPS] Skip cloud upload."
         );
 
         return;
     }
 
-    String command =
-        "AT+CGDCONT=1,\"IP\",\"";
 
-    command += APN;
-
-    command += "\"";
-
-    sendAT(
-        command,
-        3000
-    );
-}
-
-
-// ============================================================
-// ACTIVATE NETWORK
-// ============================================================
-
-bool activateNetwork()
-{
-    Serial.println();
-    Serial.println("================================");
-    Serial.println(" STEP 8 - ACTIVATE 4G DATA");
-    Serial.println("================================");
-
-    // Attach packet service
-    sendAT(
-        "AT+CGATT=1",
-        5000
-    );
-
-    delay(1000);
-
-
-    // Activate PDP/network context
-    String response =
-        sendAT(
-            "AT+NETOPEN",
-            10000
-        );
-
-
-    // Một số firmware trả OK trước,
-    // sau đó mới +NETOPEN: 0.
-    if (
-        response.indexOf("+NETOPEN: 0") >= 0 ||
-        response.indexOf("Network is already opened") >= 0
-    )
+    if (!isGPSReadyForUpload())
     {
         Serial.println(
-            "[PASS] MOBILE DATA ACTIVE"
+            "[GPS] Location not ready for upload."
         );
 
-        return true;
+        return;
     }
 
 
-    // Kiểm tra trạng thái NETOPEN
-    response =
-        sendAT(
-            "AT+NETOPEN?",
-            3000
-        );
+    const double latitude =
+        getGPSLatitude();
 
 
-    if (
-        response.indexOf("+NETOPEN: 1") >= 0
-    )
-    {
-        Serial.println(
-            "[PASS] MOBILE DATA ACTIVE"
-        );
+    const double longitude =
+        getGPSLongitude();
 
-        return true;
-    }
+
+    const double speedKmh =
+        getGPSSpeedKmh();
+
+
+    const uint32_t satellites =
+        getGPSSatellites();
 
 
     Serial.println(
-        "[WARNING] Could not confirm NETOPEN."
-    );
-
-    return false;
-}
-
-
-// ============================================================
-// CHECK IP ADDRESS
-// ============================================================
-
-void checkIPAddress()
-{
-    Serial.println();
-    Serial.println("================================");
-    Serial.println(" STEP 9 - IP ADDRESS");
-    Serial.println("================================");
-
-    sendAT(
-        "AT+IPADDR",
-        3000
-    );
-}
-
-
-// ============================================================
-// HTTP GET
-// ============================================================
-
-bool httpGET()
-{
-    Serial.println();
-    Serial.println("================================");
-    Serial.println(" STEP 10 - HTTP GET");
-    Serial.println("================================");
-
-
-    // --------------------------------------------------------
-    // Cleanup previous HTTP session
-    // --------------------------------------------------------
-
-    sendAT(
-        "AT+HTTPTERM",
-        2000
+        "[GPS] Sending location to Azure..."
     );
 
 
-    // --------------------------------------------------------
-    // HTTP INIT
-    // --------------------------------------------------------
-
-    String response =
-        sendAT(
-            "AT+HTTPINIT",
-            3000
+    GPSUploadResult gpsResult =
+        postGPSLocation(
+            DEVICE_ID,
+            currentTripId,
+            latitude,
+            longitude,
+            speedKmh,
+            satellites
         );
 
 
-    if (!responseContains(response, "OK"))
-    {
-        Serial.println(
-            "[FAIL] HTTPINIT"
-        );
+    // ========================================================
+    // REQUEST FAILED
+    // ========================================================
 
-        return false;
-    }
-
-
-    // --------------------------------------------------------
-    // CID
-    // --------------------------------------------------------
-
-    sendAT(
-        "AT+HTTPPARA=\"CID\",1",
-        3000
-    );
-
-
-    // --------------------------------------------------------
-    // URL
-    // --------------------------------------------------------
-
-    String command =
-        "AT+HTTPPARA=\"URL\",\"";
-
-    command += TEST_URL;
-
-    command += "\"";
-
-
-    response =
-        sendAT(
-            command,
-            3000
-        );
-
-
-    if (!responseContains(response, "OK"))
-    {
-        Serial.println(
-            "[FAIL] SET HTTP URL"
-        );
-
-        sendAT(
-            "AT+HTTPTERM",
-            2000
-        );
-
-        return false;
-    }
-
-
-    // --------------------------------------------------------
-    // HTTP GET
-    // --------------------------------------------------------
-
-    Serial.println();
-    Serial.println(
-        "[HTTP] Sending GET..."
-    );
-
-
-    response =
-        sendAT(
-            "AT+HTTPACTION=0",
-            15000
-        );
-
-
-    // HTTPACTION response thường có dạng:
-    //
-    // +HTTPACTION: 0,200,<length>
-    //
-    // 200 = HTTP OK
-    // --------------------------------------------------------
-
-    int actionIndex =
-        response.indexOf("+HTTPACTION:");
-
-    if (actionIndex < 0)
-    {
-        Serial.println(
-            "[FAIL] NO HTTPACTION RESULT"
-        );
-
-        sendAT(
-            "AT+HTTPTERM",
-            2000
-        );
-
-        return false;
-    }
-
-
-    // --------------------------------------------------------
-    // CHECK HTTP STATUS 200
-    // --------------------------------------------------------
-
-    if (
-        response.indexOf(",200,") >= 0
-    )
+    if (!gpsResult.requestOK)
     {
         Serial.println();
+
         Serial.println(
-            "[PASS] HTTP STATUS = 200"
+            "[GPS CLOUD] Request failed."
         );
 
+        Serial.print(
+            "[GPS CLOUD] Reason: "
+        );
 
-        // ----------------------------------------------------
-        // READ SERVER RESPONSE
-        // ----------------------------------------------------
-
-        Serial.println();
         Serial.println(
-            "[HTTP] Reading response..."
+            gpsResult.reason
         );
 
-
-        sendAT(
-            "AT+HTTPREAD=0,500",
-            5000
-        );
-
-
-        // ----------------------------------------------------
-        // CLOSE HTTP
-        // ----------------------------------------------------
-
-        sendAT(
-            "AT+HTTPTERM",
-            3000
-        );
-
-
-        return true;
+        return;
     }
 
 
+    // ========================================================
+    // NOT SAVED
+    // ========================================================
+
+    if (!gpsResult.saved)
+    {
+        Serial.println();
+
+        Serial.println(
+            "[GPS CLOUD] GPS was not saved."
+        );
+
+        Serial.print(
+            "[GPS CLOUD] Reason: "
+        );
+
+        Serial.println(
+            gpsResult.reason
+        );
+
+        return;
+    }
+
+
+    // ========================================================
+    // SUCCESS
+    // ========================================================
+
     Serial.println();
-    Serial.println(
-        "[FAIL] HTTP STATUS IS NOT 200"
-    );
 
+    Serial.println("================================");
+    Serial.println(" GPS SAVED TO CLOUD");
+    Serial.println("================================");
 
-    sendAT(
-        "AT+HTTPTERM",
-        3000
-    );
+    Serial.print("GPS LOG ID : ");
+    Serial.println(gpsResult.gpsLogId);
 
+    Serial.print("Trip ID    : ");
+    Serial.println(currentTripId);
 
-    return false;
+    Serial.println("================================");
 }
 
 
@@ -1435,238 +1248,278 @@ bool httpGET()
 
 void setup()
 {
+    // ========================================================
+    // SERIAL
+    // ========================================================
+
     Serial.begin(115200);
 
-    delay(2000);
+    delay(1500);
 
 
     Serial.println();
     Serial.println();
-    Serial.println(
-        "========================================"
-    );
 
-    Serial.println(
-        " ESP32-S3 + A7680C"
-    );
-
-    Serial.println(
-        " 4G INTERNET + HTTP TEST"
-    );
-
-    Serial.println(
-        "========================================"
-    );
-
-
-    Serial.print(
-        "ESP32 RX : GPIO"
-    );
-
-    Serial.println(
-        GSM_RX_PIN
-    );
-
-
-    Serial.print(
-        "ESP32 TX : GPIO"
-    );
-
-    Serial.println(
-        GSM_TX_PIN
-    );
-
-
-    Serial.print(
-        "UART     : "
-    );
-
-    Serial.println(
-        GSM_BAUD
-    );
+    Serial.println("================================");
+    Serial.println(" SMARTFLEET IOT");
+    Serial.println(" ESP32-S3");
+    Serial.println("================================");
 
 
     // ========================================================
-    // START MODEM UART
+    // LCD
     // ========================================================
 
-    modem.begin(
-        GSM_BAUD,
-        SERIAL_8N1,
-        GSM_RX_PIN,
-        GSM_TX_PIN
-    );
+    Serial.println();
+    Serial.println("[INIT] LCD...");
 
 
-    delay(3000);
-
-
-    // ========================================================
-    // 1. MODEM
-    // ========================================================
-
-    if (!waitForModem())
+    if (!initLCD())
     {
-        Serial.println();
         Serial.println(
-            "STOP: CHECK MODEM UART"
+            "[WARNING] LCD initialization failed."
         );
+    }
 
-        return;
+
+    lcdShowMessage(
+        "SmartFleet",
+        "Starting..."
+    );
+
+
+    // ========================================================
+    // KEYPAD
+    // ========================================================
+
+    Serial.println();
+    Serial.println("[INIT] Keypad...");
+
+
+    if (!initKeypad())
+    {
+        Serial.println(
+            "[WARNING] Keypad initialization failed."
+        );
     }
 
 
     // ========================================================
-    // BASIC CONFIG
+    // RFID
     // ========================================================
 
-    sendAT(
-        "ATE0",
-        2000
-    );
+    Serial.println();
+    Serial.println("[INIT] RFID...");
 
 
-    // ========================================================
-    // 2. SIM
-    // ========================================================
-
-    if (!checkSIM())
+    if (!initRFID())
     {
-        Serial.println();
         Serial.println(
-            "STOP: CHECK SIM"
+            "[WARNING] RFID initialization failed."
         );
-
-        return;
     }
 
 
     // ========================================================
-    // 3. SIGNAL
+    // CAMERA OV3660
     // ========================================================
 
-    checkSignal();
+    Serial.println();
+    Serial.println("================================");
+    Serial.println(" CAMERA INITIALIZATION");
+    Serial.println("================================");
 
 
-    // ========================================================
-    // 4. NETWORK
-    // ========================================================
+    lcdShowMessage(
+        "Camera",
+        "Starting..."
+    );
 
-    if (!checkNetwork())
+
+    cameraInitialized =
+        initCamera();
+
+
+    if (!cameraInitialized)
     {
         Serial.println();
+
         Serial.println(
-            "STOP: LTE NETWORK NOT READY"
+            "[WARNING] Camera initialization failed."
         );
 
-        return;
+
+        lcdShowMessage(
+            "Camera Error",
+            "Continue..."
+        );
+
+
+        // Camera failure must NOT stop:
+        //
+        // RFID
+        // GPS
+        // GSM
+        // 4G
+        //
+        // SmartFleet continues in degraded mode.
+
+        delay(1000);
+    }
+    else
+    {
+        Serial.println();
+
+        Serial.println(
+            "[OK] Camera initialized."
+        );
+
+
+        lcdShowMessage(
+            "Camera Ready",
+            "Testing..."
+        );
+
+
+        // ----------------------------------------------------
+        // Test one JPEG capture during boot
+        // ----------------------------------------------------
+
+        testCameraCapture();
+
+
+        delay(500);
     }
 
 
     // ========================================================
-    // 5. OPERATOR
+    // GPS
     // ========================================================
 
-    checkOperator();
+    Serial.println();
+    Serial.println("[INIT] GPS...");
 
 
-    // ========================================================
-    // 6. PACKET SERVICE
-    // ========================================================
-
-    checkPacketService();
-
-
-    // ========================================================
-    // 7. APN
-    // ========================================================
-
-    configureAPN();
+    if (!initGPS())
+    {
+        Serial.println(
+            "[WARNING] GPS initialization failed."
+        );
+    }
 
 
     // ========================================================
-    // 8. ACTIVATE MOBILE DATA
-    // ========================================================
-
-    bool dataActive =
-        activateNetwork();
-
-
-    // Dù NETOPEN parsing không xác nhận được,
-    // vẫn in trạng thái để debug.
-    Serial.print(
-        "[DATA] NETOPEN result: "
-    );
-
-    Serial.println(
-        dataActive ? "ACTIVE" : "CHECK REQUIRED"
-    );
-
-
-    // ========================================================
-    // 9. IP
-    // ========================================================
-
-    checkIPAddress();
-
-
-    // ========================================================
-    // 10. HTTP
-    // ========================================================
-
-    bool httpOK =
-        httpGET();
-
-
-    // ========================================================
-    // FINAL RESULT
+    // GSM / A7680C
     // ========================================================
 
     Serial.println();
     Serial.println(
-        "========================================"
-    );
-
-    Serial.println(
-        " FINAL RESULT"
-    );
-
-    Serial.println(
-        "========================================"
+        "[INIT] GSM / A7680C..."
     );
 
 
-    if (httpOK)
+    lcdShowMessage(
+        "4G Modem",
+        "Starting..."
+    );
+
+
+    if (!initGSM())
     {
         Serial.println(
-            "A7680C 4G INTERNET : PASS"
+            "[ERROR] GSM initialization failed."
         );
 
-        Serial.println(
-            "HTTP GET            : PASS"
-        );
 
-        Serial.println();
-        Serial.println(
-            "READY FOR AZURE TEST"
+        lcdShowMessage(
+            "GSM Error",
+            "Check modem"
         );
     }
     else
     {
         Serial.println(
-            "HTTP GET : FAIL"
-        );
-
-        Serial.println();
-        Serial.println(
-            "Check the AT responses above."
+            "[OK] GSM initialized."
         );
     }
 
 
+    // ========================================================
+    // CONNECT 4G
+    // ========================================================
+
+    Serial.println();
     Serial.println(
-        "========================================"
+        "[INIT] Connecting 4G..."
     );
+
+
+    if (connect4G())
+    {
+        Serial.println();
+
+        Serial.println("================================");
+        Serial.println(" 4G DATA READY");
+        Serial.println("================================");
+
+
+        lcdShowMessage(
+            "4G Ready",
+            "Scan RFID"
+        );
+    }
+    else
+    {
+        Serial.println();
+
+        Serial.println(
+            "[ERROR] 4G connection failed."
+        );
+
+
+        lcdShowMessage(
+            "4G Error",
+            "Check network"
+        );
+    }
+
+
+    // ========================================================
+    // RESET SYSTEM STATE
+    // ========================================================
+
+    resetTripSession();
+
+    resetAuthSession();
+
+
+    // ========================================================
+    // SYSTEM STATUS
+    // ========================================================
+
+    Serial.println();
+    Serial.println("================================");
+    Serial.println(" SMARTFLEET SYSTEM READY");
+    Serial.println("================================");
+
+    Serial.print("Device : ");
+    Serial.println(DEVICE_ID);
+
+    Serial.print("Camera : ");
+
+    if (cameraInitialized)
+    {
+        Serial.println("READY");
+    }
+    else
+    {
+        Serial.println("OFFLINE");
+    }
+
+    Serial.println("GPS    : INITIALIZED");
+    Serial.println("4G     : INITIALIZED");
+
+    Serial.println("================================");
 }
 
 
@@ -1676,17 +1529,71 @@ void setup()
 
 void loop()
 {
-    // --------------------------------------------------------
-    // Forward unsolicited modem messages to Serial Monitor
-    // --------------------------------------------------------
+    // ========================================================
+    // 1. GPS CLOUD TRACKING
+    // ========================================================
+    //
+    // GPS is uploaded only while a trip is active.
+    //
+    // ========================================================
 
-    while (modem.available())
+    handleGPSTracking();
+
+    handleCameraCloudUpload();
+
+
+    // ========================================================
+    // 2. AUTHENTICATION STATE MACHINE
+    // ========================================================
+
+    switch (authState)
     {
-        Serial.write(
-            modem.read()
-        );
+        // ----------------------------------------------------
+        // WAIT RFID
+        // ----------------------------------------------------
+
+        case WAIT_RFID:
+        {
+            if (!tripActive)
+            {
+                handleRFID();
+            }
+
+            break;
+        }
+
+
+        // ----------------------------------------------------
+        // WAIT PIN
+        // ----------------------------------------------------
+
+        case WAIT_PIN:
+        {
+            handlePIN();
+
+            break;
+        }
+
+
+        // ----------------------------------------------------
+        // SENDING TO AZURE
+        // ----------------------------------------------------
+
+        case SENDING_AZURE:
+        {
+            // Request is handled synchronously
+            // inside handlePIN().
+
+            break;
+        }
     }
 
 
-    delay(10);
+    // ========================================================
+    // 3. FREE CPU
+    // ========================================================
+
+    vTaskDelay(
+        pdMS_TO_TICKS(10)
+    );
 }
