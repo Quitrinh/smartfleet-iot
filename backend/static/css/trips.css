@@ -1,1144 +1,882 @@
 /* ============================================================
    SMARTFLEET - TRIPS PAGE
-   File: backend/static/js/trips.js
+   File: backend/static/css/trips.css
    ============================================================ */
 
-document.addEventListener("DOMContentLoaded", () => {
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
 
-    /* ========================================================
-       CONFIG
-       ======================================================== */
+:root {
+    --background: #f4f6f8;
+    --surface: #ffffff;
+    --surface-soft: #f8fafc;
 
-    const TRIPS_API = "/api/trips";
+    --sidebar: #172033;
 
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
 
-    /* ========================================================
-       DOM ELEMENTS
-       ======================================================== */
+    --text-primary: #172033;
+    --text-secondary: #667085;
 
-    const tripTableBody =
-        document.getElementById("tripTableBody");
+    --border: #e4e7ec;
 
-    const searchInput =
-        document.getElementById("searchInput");
+    --success: #16a34a;
+    --warning: #d97706;
+    --danger: #dc2626;
 
-    const refreshButton =
-        document.getElementById("refreshButton");
+    --radius: 12px;
+}
 
-    const totalTrips =
-        document.getElementById("totalTrips");
+html,
+body {
+    width: 100%;
+    min-height: 100%;
+}
 
-    const activeTrips =
-        document.getElementById("activeTrips");
+body {
+    min-height: 100vh;
 
-    const completedTrips =
-        document.getElementById("completedTrips");
+    font-family:
+        Inter,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Roboto,
+        Arial,
+        sans-serif;
 
-    const cancelledTrips =
-        document.getElementById("cancelledTrips");
+    background: var(--background);
+    color: var(--text-primary);
+}
 
-    const tableDescription =
-        document.getElementById("tableDescription");
 
-    const emptyState =
-        document.getElementById("emptyState");
+/* ============================================================
+   SIDEBAR
+   ============================================================ */
 
-    const serverStatus =
-        document.getElementById("serverStatus");
+.sidebar {
+    position: fixed;
 
-    const statusDot =
-        document.getElementById("statusDot");
+    top: 0;
+    left: 0;
+    bottom: 0;
 
-    const lastUpdate =
-        document.getElementById("lastUpdate");
+    width: 250px;
 
+    display: flex;
+    flex-direction: column;
 
-    /* ========================================================
-       STATE
-       ======================================================== */
+    padding: 24px 16px;
 
-    let trips = [];
+    background: var(--sidebar);
+    color: #ffffff;
 
+    z-index: 100;
+}
 
-    /* ========================================================
-       LOAD TRIPS FROM API
-       ======================================================== */
 
-    async function loadTrips() {
+/* ============================================================
+   BRAND
+   ============================================================ */
 
-        console.log("[TRIPS] Loading trips...");
+.brand {
+    display: flex;
+    align-items: center;
 
-        setLoading(true);
+    gap: 12px;
 
-        hideEmptyState();
+    padding: 0 8px 24px;
 
-        setServerStatus(
-            "loading",
-            "Đang kết nối SmartFleet Server..."
-        );
+    border-bottom:
+        1px solid rgba(255, 255, 255, 0.1);
+}
 
+.brand-logo {
+    width: 42px;
+    height: 42px;
 
-        try {
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
-            const response = await fetch(
-                TRIPS_API,
-                {
-                    method: "GET",
+    flex-shrink: 0;
 
-                    headers: {
-                        "Accept": "application/json"
-                    },
+    border-radius: 10px;
 
-                    cache: "no-store"
-                }
-            );
+    background: var(--primary);
 
+    color: #ffffff;
 
-            console.log(
-                "[TRIPS] HTTP:",
-                response.status
-            );
+    font-size: 15px;
+    font-weight: 700;
+}
 
+.brand > div:last-child {
+    display: flex;
+    flex-direction: column;
+}
 
-            if (!response.ok) {
+.brand strong {
+    font-size: 16px;
+}
 
-                throw new Error(
-                    `HTTP ${response.status}`
-                );
-            }
+.brand span {
+    margin-top: 3px;
 
+    color: #94a3b8;
 
-            const data =
-                await response.json();
+    font-size: 11px;
+}
 
 
-            console.log(
-                "[TRIPS] API response:",
-                data
-            );
+/* ============================================================
+   NAVIGATION
+   ============================================================ */
 
+.navigation {
+    display: flex;
+    flex-direction: column;
 
-            /* ================================================
-               API có thể trả:
+    gap: 5px;
 
-               [
-                   {...},
-                   {...}
-               ]
+    margin-top: 25px;
+}
 
-               hoặc:
+.navigation a {
+    display: block;
 
-               {
-                   "trips": [...]
-               }
+    padding: 12px 14px;
 
-               hoặc:
+    border-radius: 8px;
 
-               {
-                   "data": [...]
-               }
-               ================================================ */
+    color: #cbd5e1;
 
-            if (Array.isArray(data)) {
+    font-size: 14px;
+    font-weight: 500;
 
-                trips = data;
+    text-decoration: none;
 
-            } else if (
-                data &&
-                Array.isArray(data.trips)
-            ) {
+    transition:
+        background 0.15s ease,
+        color 0.15s ease;
+}
 
-                trips = data.trips;
+.navigation a:hover {
+    background:
+        rgba(255, 255, 255, 0.07);
 
-            } else if (
-                data &&
-                Array.isArray(data.data)
-            ) {
+    color: #ffffff;
+}
 
-                trips = data.data;
+.navigation a.active {
+    background: var(--primary);
+    color: #ffffff;
+}
 
-            } else {
 
-                trips = [];
-            }
+/* ============================================================
+   SIDEBAR BOTTOM
+   ============================================================ */
 
+.sidebar-bottom {
+    margin-top: auto;
 
-            /* ================================================
-               UPDATE UI
-               ================================================ */
+    padding-top: 20px;
 
-            updateSummary(trips);
+    border-top:
+        1px solid rgba(255, 255, 255, 0.1);
+}
 
-            renderTrips(trips);
+.user-info {
+    display: flex;
+    align-items: center;
 
+    gap: 10px;
 
-            setServerStatus(
-                "online",
-                "SmartFleet Server đã kết nối"
-            );
+    padding: 8px;
+}
 
+.avatar {
+    width: 36px;
+    height: 36px;
 
-            updateLastUpdate();
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
+    flex-shrink: 0;
 
-        } catch (error) {
+    border-radius: 50%;
 
-            console.error(
-                "[TRIPS ERROR]",
-                error
-            );
+    background: #334155;
 
+    font-size: 13px;
+    font-weight: 700;
+}
 
-            trips = [];
+.user-info > div:last-child {
+    display: flex;
+    flex-direction: column;
 
+    min-width: 0;
+}
 
-            updateSummary([]);
+.user-info strong {
+    font-size: 12px;
+}
 
+.user-info span {
+    margin-top: 2px;
 
-            showLoadError();
+    color: #94a3b8;
 
+    font-size: 10px;
+}
 
-            setServerStatus(
-                "offline",
-                "Không thể kết nối SmartFleet Server"
-            );
+.logout {
+    display: block;
 
+    margin-top: 10px;
 
-        } finally {
+    padding: 10px;
 
-            setLoading(false);
-        }
+    border-radius: 7px;
+
+    color: #cbd5e1;
+
+    font-size: 12px;
+    text-align: center;
+    text-decoration: none;
+}
+
+.logout:hover {
+    background:
+        rgba(255, 255, 255, 0.07);
+
+    color: #ffffff;
+}
+
+
+/* ============================================================
+   MAIN CONTENT
+   ============================================================ */
+
+.main-content {
+    min-height: 100vh;
+
+    margin-left: 250px;
+
+    padding: 30px;
+}
+
+
+/* ============================================================
+   PAGE HEADER
+   ============================================================ */
+
+.page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 20px;
+
+    margin-bottom: 25px;
+}
+
+.page-header h1 {
+    margin-bottom: 5px;
+
+    color: var(--text-primary);
+
+    font-size: 27px;
+    font-weight: 700;
+}
+
+.page-header p {
+    color: var(--text-secondary);
+
+    font-size: 13px;
+}
+
+
+/* ============================================================
+   REFRESH BUTTON
+   ============================================================ */
+
+#refreshButton {
+    flex-shrink: 0;
+
+    padding: 10px 16px;
+
+    border: 0;
+    border-radius: 8px;
+
+    background: var(--primary);
+
+    color: #ffffff;
+
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition: background 0.15s ease;
+}
+
+#refreshButton:hover {
+    background: var(--primary-dark);
+}
+
+#refreshButton:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+
+/* ============================================================
+   SUMMARY CARDS
+   ============================================================ */
+
+.summary-grid {
+    display: grid;
+
+    grid-template-columns:
+        repeat(4, minmax(0, 1fr));
+
+    gap: 15px;
+
+    margin-bottom: 20px;
+}
+
+.summary-card {
+    min-height: 105px;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+
+    padding: 18px;
+
+    background: var(--surface);
+
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+
+.summary-card span {
+    margin-bottom: 9px;
+
+    color: var(--text-secondary);
+
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.summary-card strong {
+    color: var(--text-primary);
+
+    font-size: 25px;
+    font-weight: 700;
+}
+
+
+/* ============================================================
+   TABLE PANEL
+   ============================================================ */
+
+.table-panel {
+    overflow: hidden;
+
+    background: var(--surface);
+
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+
+.table-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 20px;
+
+    padding: 20px;
+
+    border-bottom: 1px solid var(--border);
+}
+
+.table-header h2 {
+    margin-bottom: 4px;
+
+    font-size: 16px;
+}
+
+.table-header p {
+    color: var(--text-secondary);
+
+    font-size: 12px;
+}
+
+
+/* ============================================================
+   SEARCH
+   ============================================================ */
+
+.search-box {
+    flex-shrink: 0;
+}
+
+.search-box input,
+#searchInput {
+    width: 240px;
+    height: 40px;
+
+    padding: 0 13px;
+
+    border: 1px solid var(--border);
+    border-radius: 8px;
+
+    outline: none;
+
+    background: #ffffff;
+    color: var(--text-primary);
+
+    font-family: inherit;
+    font-size: 13px;
+}
+
+.search-box input::placeholder,
+#searchInput::placeholder {
+    color: #98a2b3;
+}
+
+.search-box input:focus,
+#searchInput:focus {
+    border-color: var(--primary);
+
+    box-shadow:
+        0 0 0 3px rgba(37, 99, 235, 0.08);
+}
+
+
+/* ============================================================
+   TABLE
+   ============================================================ */
+
+.table-container {
+    width: 100%;
+
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+
+    border-collapse: collapse;
+
+    table-layout: auto;
+}
+
+thead {
+    background: var(--surface-soft);
+}
+
+th {
+    padding: 13px 16px;
+
+    color: var(--text-secondary);
+
+    font-size: 11px;
+    font-weight: 700;
+
+    text-align: left;
+    text-transform: uppercase;
+
+    white-space: nowrap;
+}
+
+td {
+    padding: 16px;
+
+    border-top: 1px solid var(--border);
+
+    color: var(--text-primary);
+
+    font-size: 13px;
+
+    vertical-align: middle;
+}
+
+tbody tr:hover {
+    background: #fafbfc;
+}
+
+
+/* ============================================================
+   COLUMN SIZES
+   ============================================================ */
+
+th:nth-child(1),
+td:nth-child(1) {
+    min-width: 130px;
+}
+
+th:nth-child(2),
+td:nth-child(2) {
+    min-width: 130px;
+}
+
+th:nth-child(3),
+td:nth-child(3) {
+    min-width: 150px;
+}
+
+th:nth-child(4),
+td:nth-child(4) {
+    min-width: 130px;
+}
+
+th:nth-child(5),
+td:nth-child(5) {
+    min-width: 155px;
+}
+
+th:nth-child(6),
+td:nth-child(6) {
+    min-width: 100px;
+}
+
+th:nth-child(7),
+td:nth-child(7) {
+    min-width: 100px;
+}
+
+
+/* ============================================================
+   TRIP CODE
+   ============================================================ */
+
+.trip-code {
+    color: var(--text-primary);
+
+    font-size: 13px;
+    font-weight: 700;
+}
+
+
+/* ============================================================
+   TRIP TIME
+   ============================================================ */
+
+.trip-time {
+    color: var(--text-secondary);
+
+    font-size: 12px;
+
+    white-space: nowrap;
+}
+
+
+/* ============================================================
+   STATUS BADGES
+   ============================================================ */
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+
+    padding: 5px 9px;
+
+    border-radius: 20px;
+
+    font-size: 11px;
+    font-weight: 700;
+
+    white-space: nowrap;
+}
+
+
+/* IN_PROGRESS */
+
+.status-progress {
+    background: #eff6ff;
+    color: var(--primary);
+}
+
+
+/* COMPLETED */
+
+.status-completed {
+    background: #ecfdf3;
+    color: var(--success);
+}
+
+
+/* CANCELLED */
+
+.status-cancelled {
+    background: #fef2f2;
+    color: var(--danger);
+}
+
+
+/* UNKNOWN */
+
+.status-unknown {
+    background: #f2f4f7;
+    color: var(--text-secondary);
+}
+
+
+/* ============================================================
+   GPS
+   ============================================================ */
+
+.gps-empty {
+    color: #98a2b3;
+
+    font-size: 12px;
+}
+
+
+/* ============================================================
+   ACTION BUTTON
+   ============================================================ */
+
+.view-button {
+    display: inline-block;
+
+    padding: 7px 11px;
+
+    border: 1px solid var(--border);
+    border-radius: 7px;
+
+    background: #ffffff;
+
+    color: var(--primary);
+
+    font-size: 12px;
+    font-weight: 600;
+
+    text-decoration: none;
+
+    white-space: nowrap;
+}
+
+.view-button:hover {
+    border-color: var(--primary);
+
+    background: #eff6ff;
+}
+
+
+/* ============================================================
+   LOADING
+   ============================================================ */
+
+.loading {
+    padding: 30px;
+
+    color: var(--text-secondary);
+
+    text-align: center;
+}
+
+
+/* ============================================================
+   EMPTY STATE
+   ============================================================ */
+
+.empty-state {
+    display: none;
+
+    margin-top: 20px;
+
+    padding: 45px 20px;
+
+    background: var(--surface);
+
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+
+    text-align: center;
+}
+
+.empty-state.show {
+    display: block;
+}
+
+.empty-state h3 {
+    margin-bottom: 7px;
+
+    font-size: 16px;
+}
+
+.empty-state p {
+    color: var(--text-secondary);
+
+    font-size: 13px;
+}
+
+
+/* ============================================================
+   SERVER STATUS
+   ============================================================ */
+
+.server-status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 20px;
+
+    margin-top: 16px;
+
+    padding: 12px 15px;
+
+    color: var(--text-secondary);
+
+    font-size: 11px;
+}
+
+.server-status > div {
+    display: flex;
+    align-items: center;
+
+    gap: 8px;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+
+    flex-shrink: 0;
+
+    border-radius: 50%;
+
+    background: var(--warning);
+}
+
+.status-dot.online {
+    background: var(--success);
+}
+
+.status-dot.offline {
+    background: var(--danger);
+}
+
+#serverStatus,
+#lastUpdate {
+    color: var(--text-secondary);
+
+    font-size: 11px;
+}
+
+
+/* ============================================================
+   TABLET
+   ============================================================ */
+
+@media (max-width: 1100px) {
+
+    .summary-grid {
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+    }
+}
+
+
+/* ============================================================
+   MOBILE
+   ============================================================ */
+
+@media (max-width: 760px) {
+
+    .sidebar {
+        position: static;
+
+        width: 100%;
+        height: auto;
+
+        padding: 15px;
     }
 
+    .navigation {
+        flex-direction: row;
 
-    /* ========================================================
-       RENDER TRIPS
-       ======================================================== */
+        overflow-x: auto;
 
-    function renderTrips(tripList) {
-
-        tripTableBody.innerHTML = "";
-
-
-        /* ================================================
-           NO DATA
-           ================================================ */
-
-        if (
-            !tripList ||
-            tripList.length === 0
-        ) {
-
-            showEmptyState();
-
-            tableDescription.textContent =
-                "Không có chuyến đi để hiển thị.";
-
-            return;
-        }
-
-
-        hideEmptyState();
-
-
-        tableDescription.textContent =
-            `${tripList.length} chuyến đi`;
-
-
-        /* ================================================
-           CREATE TABLE ROW
-           ================================================ */
-
-        tripList.forEach((trip) => {
-
-            const row =
-                document.createElement("tr");
-
-
-            /* --------------------------------------------
-               TRIP ID
-               -------------------------------------------- */
-
-            const tripId =
-                trip.id ??
-                trip.trip_id ??
-                "--";
-
-
-            /* --------------------------------------------
-               TRIP CODE
-               -------------------------------------------- */
-
-            const tripCode =
-                trip.trip_code ??
-                trip.code ??
-                (
-                    tripId !== "--"
-                        ? `TRIP_${tripId}`
-                        : "--"
-                );
-
-
-            /* --------------------------------------------
-               VEHICLE
-               -------------------------------------------- */
-
-            const vehicle =
-                getVehicleName(trip);
-
-
-            /* --------------------------------------------
-               DRIVER
-               -------------------------------------------- */
-
-            const driver =
-                getDriverName(trip);
-
-
-            /* --------------------------------------------
-               STATUS
-               -------------------------------------------- */
-
-            const status =
-                normalizeStatus(
-                    trip.status
-                );
-
-
-            /* --------------------------------------------
-               START TIME
-               -------------------------------------------- */
-
-            const startTime =
-                formatDateTime(
-                    trip.started_at ??
-                    trip.start_time ??
-                    trip.created_at
-                );
-
-
-            /* --------------------------------------------
-               GPS AVAILABLE?
-               -------------------------------------------- */
-
-            const hasGPS =
-                trip.gps_available === true ||
-                trip.has_gps === true ||
-                Number(trip.gps_count) > 0 ||
-                Number(trip.point_count) > 0;
-
-
-            /* --------------------------------------------
-               ROW HTML
-               -------------------------------------------- */
-
-            row.innerHTML = `
-
-                <td>
-
-                    <span class="trip-code">
-
-                        ${escapeHTML(tripCode)}
-
-                    </span>
-
-                </td>
-
-
-                <td>
-
-                    ${escapeHTML(vehicle)}
-
-                </td>
-
-
-                <td>
-
-                    ${escapeHTML(driver)}
-
-                </td>
-
-
-                <td>
-
-                    ${createStatusBadge(status)}
-
-                </td>
-
-
-                <td>
-
-                    <span class="trip-time">
-
-                        ${escapeHTML(startTime)}
-
-                    </span>
-
-                </td>
-
-
-                <td>
-
-                    ${
-                        hasGPS
-                            ? `
-                                <a
-                                    class="view-button"
-                                    href="${createGPSLink(
-                                        tripId,
-                                        trip
-                                    )}"
-                                >
-                                    Xem GPS
-                                </a>
-                              `
-                            : `
-                                <span class="gps-empty">
-                                    --
-                                </span>
-                              `
-                    }
-
-                </td>
-
-
-                <td>
-
-                    <a
-                        class="view-button"
-                        href="${createTripDetailLink(
-                            tripId
-                        )}"
-                    >
-                        Chi tiết
-                    </a>
-
-                </td>
-            `;
-
-
-            tripTableBody.appendChild(
-                row
-            );
-        });
+        margin-top: 15px;
     }
 
+    .navigation a {
+        flex-shrink: 0;
 
-    /* ========================================================
-       GET VEHICLE NAME
-       ======================================================== */
-
-    function getVehicleName(trip) {
-
-        /* API dạng phẳng */
-
-        if (trip.vehicle_code) {
-            return trip.vehicle_code;
-        }
-
-
-        if (trip.device_id) {
-            return trip.device_id;
-        }
-
-
-        if (trip.vehicle_name) {
-            return trip.vehicle_name;
-        }
-
-
-        /* API dạng object */
-
-        if (
-            trip.vehicle &&
-            typeof trip.vehicle === "object"
-        ) {
-
-            return (
-                trip.vehicle.vehicle_code ??
-                trip.vehicle.code ??
-                trip.vehicle.device_id ??
-                trip.vehicle.name ??
-                (
-                    trip.vehicle.id
-                        ? `Vehicle ${trip.vehicle.id}`
-                        : "--"
-                )
-            );
-        }
-
-
-        /* Chỉ có vehicle_id */
-
-        if (trip.vehicle_id) {
-
-            return `Vehicle ${trip.vehicle_id}`;
-        }
-
-
-        return "--";
+        white-space: nowrap;
     }
 
-
-    /* ========================================================
-       GET DRIVER NAME
-       ======================================================== */
-
-    function getDriverName(trip) {
-
-        /* API dạng phẳng */
-
-        if (trip.driver_name) {
-            return trip.driver_name;
-        }
-
-
-        if (trip.driver_code) {
-            return trip.driver_code;
-        }
-
-
-        if (trip.full_name) {
-            return trip.full_name;
-        }
-
-
-        /* API dạng object */
-
-        if (
-            trip.driver &&
-            typeof trip.driver === "object"
-        ) {
-
-            return (
-                trip.driver.full_name ??
-                trip.driver.name ??
-                trip.driver.driver_code ??
-                trip.driver.code ??
-                (
-                    trip.driver.id
-                        ? `Driver ${trip.driver.id}`
-                        : "--"
-                )
-            );
-        }
-
-
-        /* Chỉ có driver_id */
-
-        if (trip.driver_id) {
-
-            return `Driver ${trip.driver_id}`;
-        }
-
-
-        return "--";
+    .sidebar-bottom {
+        display: none;
     }
 
+    .main-content {
+        margin-left: 0;
 
-    /* ========================================================
-       SUMMARY
-       ======================================================== */
-
-    function updateSummary(tripList) {
-
-        const total =
-            tripList.length;
-
-
-        let active = 0;
-
-        let completed = 0;
-
-        let cancelled = 0;
-
-
-        tripList.forEach((trip) => {
-
-            const status =
-                normalizeStatus(
-                    trip.status
-                );
-
-
-            /* --------------------------------------------
-               ACTIVE
-               -------------------------------------------- */
-
-            if (
-                status === "IN_PROGRESS" ||
-                status === "ACTIVE" ||
-                status === "RUNNING" ||
-                status === "STARTED"
-            ) {
-
-                active++;
-
-                return;
-            }
-
-
-            /* --------------------------------------------
-               COMPLETED
-               -------------------------------------------- */
-
-            if (
-                status === "COMPLETED" ||
-                status === "FINISHED" ||
-                status === "DONE"
-            ) {
-
-                completed++;
-
-                return;
-            }
-
-
-            /* --------------------------------------------
-               CANCELLED
-               -------------------------------------------- */
-
-            if (
-                status === "CANCELLED" ||
-                status === "CANCELED"
-            ) {
-
-                cancelled++;
-            }
-        });
-
-
-        totalTrips.textContent =
-            total;
-
-        activeTrips.textContent =
-            active;
-
-        completedTrips.textContent =
-            completed;
-
-        cancelledTrips.textContent =
-            cancelled;
+        padding: 18px 12px;
     }
 
-
-    /* ========================================================
-       NORMALIZE STATUS
-       ======================================================== */
-
-    function normalizeStatus(status) {
-
-        if (!status) {
-
-            return "UNKNOWN";
-        }
-
-
-        return String(status)
-            .trim()
-            .toUpperCase();
+    .page-header {
+        align-items: flex-start;
+        flex-direction: column;
     }
 
-
-    /* ========================================================
-       STATUS BADGE
-       ======================================================== */
-
-    function createStatusBadge(status) {
-
-        let cssClass =
-            "status-unknown";
-
-        let label =
-            "Không xác định";
-
-
-        switch (status) {
-
-            /* --------------------------------------------
-               IN PROGRESS
-               -------------------------------------------- */
-
-            case "IN_PROGRESS":
-
-            case "ACTIVE":
-
-            case "RUNNING":
-
-            case "STARTED":
-
-                cssClass =
-                    "status-progress";
-
-                label =
-                    "Đang thực hiện";
-
-                break;
-
-
-            /* --------------------------------------------
-               COMPLETED
-               -------------------------------------------- */
-
-            case "COMPLETED":
-
-            case "FINISHED":
-
-            case "DONE":
-
-                cssClass =
-                    "status-completed";
-
-                label =
-                    "Hoàn thành";
-
-                break;
-
-
-            /* --------------------------------------------
-               CANCELLED
-               -------------------------------------------- */
-
-            case "CANCELLED":
-
-            case "CANCELED":
-
-                cssClass =
-                    "status-cancelled";
-
-                label =
-                    "Đã hủy";
-
-                break;
-
-
-            /* --------------------------------------------
-               DEFAULT
-               -------------------------------------------- */
-
-            default:
-
-                cssClass =
-                    "status-unknown";
-
-                label =
-                    status === "UNKNOWN"
-                        ? "Không xác định"
-                        : status;
-
-                break;
-        }
-
-
-        return `
-
-            <span class="status-badge ${cssClass}">
-
-                ${escapeHTML(label)}
-
-            </span>
-
-        `;
+    #refreshButton {
+        width: 100%;
     }
 
+    .summary-grid {
+        grid-template-columns: 1fr 1fr;
 
-    /* ========================================================
-       FORMAT DATE
-       ======================================================== */
-
-    function formatDateTime(value) {
-
-        if (!value) {
-
-            return "--";
-        }
-
-
-        try {
-
-            const date =
-                new Date(value);
-
-
-            if (
-                Number.isNaN(
-                    date.getTime()
-                )
-            ) {
-
-                return String(value);
-            }
-
-
-            return date.toLocaleString(
-                "vi-VN",
-                {
-                    day: "2-digit",
-                    month: "2-digit",
-                    year: "numeric",
-
-                    hour: "2-digit",
-                    minute: "2-digit"
-                }
-            );
-
-
-        } catch (error) {
-
-            console.error(
-                "[TRIPS] Date format error:",
-                error
-            );
-
-
-            return String(value);
-        }
+        gap: 10px;
     }
 
-
-    /* ========================================================
-       SEARCH
-       ======================================================== */
-
-    function filterTrips() {
-
-        const keyword =
-            searchInput.value
-                .trim()
-                .toLowerCase();
-
-
-        /* Không nhập gì */
-
-        if (!keyword) {
-
-            renderTrips(trips);
-
-            return;
-        }
-
-
-        const filtered =
-            trips.filter((trip) => {
-
-                const searchableValues = [
-
-                    trip.id,
-
-                    trip.trip_id,
-
-                    trip.trip_code,
-
-                    trip.code,
-
-                    trip.status,
-
-                    trip.vehicle_id,
-
-                    trip.vehicle_code,
-
-                    trip.device_id,
-
-                    trip.vehicle_name,
-
-                    trip.driver_id,
-
-                    trip.driver_name,
-
-                    trip.driver_code,
-
-                    getVehicleName(trip),
-
-                    getDriverName(trip)
-
-                ];
-
-
-                const searchableText =
-                    searchableValues
-                        .filter(
-                            value =>
-                                value !== null &&
-                                value !== undefined
-                        )
-                        .join(" ")
-                        .toLowerCase();
-
-
-                return searchableText.includes(
-                    keyword
-                );
-            });
-
-
-        renderTrips(filtered);
+    .table-header {
+        align-items: flex-start;
+        flex-direction: column;
     }
 
-
-    /* ========================================================
-       GPS LINK
-       ======================================================== */
-
-    function createGPSLink(
-        tripId,
-        trip
-    ) {
-
-        /* Nếu API trả device_id */
-
-        if (trip.device_id) {
-
-            return (
-                "/dashboard?device_id=" +
-                encodeURIComponent(
-                    trip.device_id
-                )
-            );
-        }
-
-
-        /* Nếu có trip ID */
-
-        if (
-            tripId &&
-            tripId !== "--"
-        ) {
-
-            return (
-                "/dashboard?trip_id=" +
-                encodeURIComponent(
-                    tripId
-                )
-            );
-        }
-
-
-        return "/dashboard";
+    .search-box,
+    .search-box input,
+    #searchInput {
+        width: 100%;
     }
 
+    .server-status {
+        align-items: flex-start;
+        flex-direction: column;
 
-    /* ========================================================
-       TRIP DETAIL LINK
-       ======================================================== */
-
-    function createTripDetailLink(
-        tripId
-    ) {
-
-        if (
-            !tripId ||
-            tripId === "--"
-        ) {
-
-            return "/trips";
-        }
+        gap: 8px;
+    }
+}
 
 
-        return (
-            "/trips/" +
-            encodeURIComponent(
-                tripId
-            )
-        );
+/* ============================================================
+   SMALL MOBILE
+   ============================================================ */
+
+@media (max-width: 480px) {
+
+    .summary-grid {
+        grid-template-columns: 1fr;
     }
 
-
-    /* ========================================================
-       SERVER STATUS
-       ======================================================== */
-
-    function setServerStatus(
-        state,
-        message
-    ) {
-
-        serverStatus.textContent =
-            message;
-
-
-        statusDot.classList.remove(
-            "online",
-            "offline"
-        );
-
-
-        if (state === "online") {
-
-            statusDot.classList.add(
-                "online"
-            );
-
-        } else if (
-            state === "offline"
-        ) {
-
-            statusDot.classList.add(
-                "offline"
-            );
-        }
+    .summary-card {
+        min-height: 90px;
     }
-
-
-    /* ========================================================
-       LAST UPDATE
-       ======================================================== */
-
-    function updateLastUpdate() {
-
-        const now =
-            new Date();
-
-
-        lastUpdate.textContent =
-            "Cập nhật: " +
-            now.toLocaleTimeString(
-                "vi-VN",
-                {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit"
-                }
-            );
-    }
-
-
-    /* ========================================================
-       LOADING
-       ======================================================== */
-
-    function setLoading(
-        isLoading
-    ) {
-
-        refreshButton.disabled =
-            isLoading;
-
-
-        refreshButton.textContent =
-            isLoading
-                ? "Đang tải..."
-                : "Cập nhật";
-    }
-
-
-    /* ========================================================
-       EMPTY STATE
-       ======================================================== */
-
-    function showEmptyState() {
-
-        emptyState.classList.add(
-            "show"
-        );
-    }
-
-
-    function hideEmptyState() {
-
-        emptyState.classList.remove(
-            "show"
-        );
-    }
-
-
-    /* ========================================================
-       LOAD ERROR
-       ======================================================== */
-
-    function showLoadError() {
-
-        hideEmptyState();
-
-
-        tripTableBody.innerHTML = `
-
-            <tr>
-
-                <td colspan="7">
-
-                    <div class="loading">
-
-                        Không thể tải danh sách chuyến đi.
-
-                    </div>
-
-                </td>
-
-            </tr>
-
-        `;
-
-
-        tableDescription.textContent =
-            "Không thể tải dữ liệu.";
-    }
-
-
-    /* ========================================================
-       ESCAPE HTML
-       ======================================================== */
-
-    function escapeHTML(value) {
-
-        if (
-            value === null ||
-            value === undefined
-        ) {
-
-            return "";
-        }
-
-
-        return String(value)
-            .replaceAll(
-                "&",
-                "&amp;"
-            )
-            .replaceAll(
-                "<",
-                "&lt;"
-            )
-            .replaceAll(
-                ">",
-                "&gt;"
-            )
-            .replaceAll(
-                '"',
-                "&quot;"
-            )
-            .replaceAll(
-                "'",
-                "&#039;"
-            );
-    }
-
-
-    /* ========================================================
-       EVENTS
-       ======================================================== */
-
-    refreshButton.addEventListener(
-        "click",
-        () => {
-
-            loadTrips();
-        }
-    );
-
-
-    searchInput.addEventListener(
-        "input",
-        () => {
-
-            filterTrips();
-        }
-    );
-
-
-    /* ========================================================
-       PAGE START
-       ======================================================== */
-
-    loadTrips();
-
-});
+}
