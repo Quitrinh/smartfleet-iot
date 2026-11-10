@@ -21,8 +21,8 @@
 // A7680C - UART2
 // ============================================================
 
-#define GSM_RX_PIN 21
-#define GSM_TX_PIN 47
+#define GSM_RX_PIN 47
+#define GSM_TX_PIN 21
 
 
 // ============================================================
@@ -66,5 +66,7 @@
 #define RFID_SCK_PIN   40
 #define RFID_MOSI_PIN  38
 #define RFID_MISO_PIN  39
+
+#define BUZZER_PIN     20
 
 #endif

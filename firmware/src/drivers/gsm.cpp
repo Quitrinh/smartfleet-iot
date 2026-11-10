@@ -1053,6 +1053,81 @@ data_sent:
 // SIMPLE JSON HELPERS
 // ============================================================
 
+static String jsonObject(
+    const String &json,
+    const String &key)
+{
+    String pattern =
+        "\"" + key + "\"";
+
+    int p = json.indexOf(pattern);
+    if (p < 0)
+        return "";
+
+    p = json.indexOf(':', p + pattern.length());
+    if (p < 0)
+        return "";
+
+    p++;
+    while (p < (int)json.length() &&
+           (json[p] == ' ' || json[p] == '\r' ||
+            json[p] == '\n' || json[p] == '\t'))
+    {
+        p++;
+    }
+
+    // A nullable nested object is valid JSON but means no object.
+    if (json.substring(p).startsWith("null"))
+        return "";
+
+    if (p >= (int)json.length() || json[p] != '{')
+        return "";
+
+    const int start = p;
+    int depth = 0;
+    bool inString = false;
+    bool escaped = false;
+
+    for (; p < (int)json.length(); p++)
+    {
+        const char c = json[p];
+
+        if (inString)
+        {
+            if (escaped)
+            {
+                escaped = false;
+            }
+            else if (c == '\\')
+            {
+                escaped = true;
+            }
+            else if (c == '\"')
+            {
+                inString = false;
+            }
+            continue;
+        }
+
+        if (c == '\"')
+        {
+            inString = true;
+            continue;
+        }
+
+        if (c == '{')
+            depth++;
+        else if (c == '}')
+        {
+            depth--;
+            if (depth == 0)
+                return json.substring(start, p + 1);
+        }
+    }
+
+    return "";
+}
+
 static String jsonString(
     const String &json,
     const String &key)
@@ -1323,44 +1398,56 @@ VehicleAuthResult postVehicleAuth(
             http.body,
             "reason");
 
-    result.driverCode =
-        jsonString(
-            http.body,
-            "driver_code");
+    // Azure returns nested objects:
+    // {"driver":{...}, "trip":{...}, "vehicle":{...}}
+    // Parse each object first so fields such as trip.id/status are
+    // not confused with top-level or vehicle fields.
+    const String driverObject =
+        jsonObject(http.body, "driver");
 
-    result.fullName =
-        jsonString(
-            http.body,
-            "full_name");
+    const String vehicleObject =
+        jsonObject(http.body, "vehicle");
 
-    result.vehicleCode =
-        jsonString(
-            http.body,
-            "vehicle_code");
+    const String tripObject =
+        jsonObject(http.body, "trip");
 
-    result.tripId =
-        jsonLong(
-            http.body,
-            "trip_id",
-            0);
+    if (driverObject.length() > 0)
+    {
+        result.driverCode =
+            jsonString(driverObject, "driver_code");
 
-    result.tripCode =
-        jsonString(
-            http.body,
-            "trip_code");
+        result.fullName =
+            jsonString(driverObject, "full_name");
+    }
 
-    result.tripStatus =
-        jsonString(
-            http.body,
-            "trip_status");
+    if (vehicleObject.length() > 0)
+    {
+        result.vehicleCode =
+            jsonString(vehicleObject, "vehicle_code");
+    }
 
-    result.destinationName =
-        jsonString(
-            http.body,
-            "destination_name");
+    if (tripObject.length() > 0)
+    {
+        result.tripId =
+            jsonLong(tripObject, "id", 0);
 
-    result.hasTrip =
-        result.tripId > 0;
+        result.tripCode =
+            jsonString(tripObject, "trip_code");
+
+        result.tripStatus =
+            jsonString(tripObject, "status");
+
+        result.destinationName =
+            jsonString(tripObject, "destination_name");
+
+        result.hasTrip =
+            result.tripId > 0;
+    }
+    else
+    {
+        result.hasTrip = false;
+        result.tripId = 0;
+    }
 
     if (
         result.reason.length() == 0 &&
@@ -2044,8 +2131,83 @@ bool sendGPSToAllPhones()
 }
 
 // ============================================================
-// CAMERA JPEG UPLOAD
+// CAMERA JPEG UPLOAD - FAST / REUSED HTTP SESSION
 // ============================================================
+//
+// The original implementation called HTTPTERM after every JPEG.
+// That forces A7680C to create a new HTTP/TLS session for every
+// frame and adds several seconds of latency.
+//
+// FAST mode keeps the HTTP context alive between successful
+// camera frames. If another feature (GPS/auth/trip) has closed
+// the context, the first camera command will fail and this code
+// automatically rebuilds the session once.
+// ============================================================
+
+static bool cameraHttpSessionReady = false;
+
+static void closeCameraHttpSession()
+{
+    sendATCommand(
+        "AT+HTTPTERM",
+        "",
+        1500);
+
+    cameraHttpSessionReady = false;
+}
+
+static bool openCameraHttpSession()
+{
+    if (cameraHttpSessionReady)
+        return true;
+
+    if (!prepareHTTPSession())
+        return false;
+
+    if (!configureAzureHTTPS())
+    {
+        closeCameraHttpSession();
+        return false;
+    }
+
+    cameraHttpSessionReady = true;
+    return true;
+}
+
+static bool configureCameraRequest(
+    const String &deviceId,
+    long tripId)
+{
+    String url =
+        String(CAMERA_URL) +
+        "?device_id=" +
+        deviceId +
+        "&trip_id=" +
+        String(tripId);
+
+    String urlCommand =
+        "AT+HTTPPARA=\"URL\",\"" +
+        url +
+        "\"";
+
+    if (!sendATCommand(
+            urlCommand.c_str(),
+            "OK",
+            2500))
+    {
+        return false;
+    }
+
+    if (!sendATCommand(
+            "AT+HTTPPARA=\"CONTENT\",\"image/jpeg\"",
+            "OK",
+            2500))
+    {
+        return false;
+    }
+
+    return true;
+}
 
 CameraUploadResult postCameraImage(
     const String &deviceId,
@@ -2066,193 +2228,145 @@ CameraUploadResult postCameraImage(
         jpegData == nullptr ||
         jpegLength == 0)
     {
-        result.reason =
-            "INVALID_ARGUMENT";
-
+        result.reason = "INVALID_ARGUMENT";
         return result;
     }
+
+    const uint32_t uploadStartedAt = millis();
 
     Serial.println();
     Serial.println("================================");
-    Serial.println(" CAMERA UPLOAD");
+    Serial.println(" CAMERA FAST UPLOAD");
     Serial.println("================================");
+    Serial.print("[CAMERA] JPEG : ");
+    Serial.print(jpegLength);
+    Serial.println(" bytes");
 
-    if (!prepareHTTPSession())
+    // --------------------------------------------------------
+    // REUSE HTTP/TLS SESSION
+    // --------------------------------------------------------
+    // Try the existing camera HTTP context first. If GPS/auth
+    // closed it, rebuild once and retry the request parameters.
+    // --------------------------------------------------------
+
+    if (!openCameraHttpSession())
     {
-        result.reason =
-            "HTTP_SESSION_FAILED";
-
+        result.reason = "HTTP_SESSION_FAILED";
         return result;
     }
 
-    if (!configureAzureHTTPS())
+    if (!configureCameraRequest(deviceId, tripId))
     {
-        result.reason =
-            "TLS_CONFIG_FAILED";
+        Serial.println(
+            "[CAMERA FAST] Session stale -> reconnect once.");
 
-        sendATCommand(
-            "AT+HTTPTERM",
-            "",
-            2000);
+        closeCameraHttpSession();
 
-        return result;
+        if (
+            !openCameraHttpSession() ||
+            !configureCameraRequest(deviceId, tripId))
+        {
+            result.reason = "HTTP_CONFIG_FAILED";
+            closeCameraHttpSession();
+            return result;
+        }
     }
 
-    String url =
-        String(CAMERA_URL) +
-        "?device_id=" +
-        deviceId +
-        "&trip_id=" +
-        String(tripId);
-
-    String urlCommand =
-        "AT+HTTPPARA=\"URL\",\"" +
-        url +
-        "\"";
-
-    if (
-        !sendATCommand(
-            urlCommand.c_str(),
-            "OK",
-            5000))
-    {
-        result.reason =
-            "HTTP_URL_FAILED";
-
-        sendATCommand(
-            "AT+HTTPTERM",
-            "",
-            2000);
-
-        return result;
-    }
-
-    if (
-        !sendATCommand(
-            "AT+HTTPPARA=\"CONTENT\",\"image/jpeg\"",
-            "OK",
-            5000))
-    {
-        result.reason =
-            "HTTP_CONTENT_FAILED";
-
-        sendATCommand(
-            "AT+HTTPTERM",
-            "",
-            2000);
-
-        return result;
-    }
-
+    // A 5-10 KB QVGA JPEG normally reaches DOWNLOAD quickly.
+    // Keep a generous modem-side data timeout, while the local
+    // wait is reduced from the previous 5 seconds.
     String dataCommand =
         "AT+HTTPDATA=" +
         String(jpegLength) +
-        ",30000";
+        ",10000";
 
-    if (
-        !sendATCommand(
+    if (!sendATCommand(
             dataCommand.c_str(),
             "DOWNLOAD",
-            5000))
+            2500))
     {
-        result.reason =
-            "HTTPDATA_FAILED";
-
-        sendATCommand(
-            "AT+HTTPTERM",
-            "",
-            2000);
-
+        result.reason = "HTTPDATA_FAILED";
+        closeCameraHttpSession();
         return result;
     }
-
-    // --------------------------------------------------------
-    // SEND RAW JPEG
-    // --------------------------------------------------------
 
     Serial.print("[CAMERA] Sending ");
     Serial.print(jpegLength);
     Serial.println(" bytes...");
 
-    gsmSerial.write(
-        jpegData,
-        jpegLength);
+    const size_t bytesSent =
+        gsmSerial.write(jpegData, jpegLength);
+
+    if (bytesSent != jpegLength)
+    {
+        result.reason = "UART_WRITE_INCOMPLETE";
+        closeCameraHttpSession();
+        return result;
+    }
 
     // --------------------------------------------------------
-    // WAIT DATA OK
+    // WAIT FOR A7680C TO ACCEPT JPEG DATA
     // --------------------------------------------------------
 
     String response;
+    response.reserve(128);
 
     uint32_t start = millis();
-
     bool dataOK = false;
 
-    while (millis() - start < 35000)
+    while (millis() - start < 12000)
     {
         while (gsmSerial.available() > 0)
         {
             char c = gsmSerial.read();
-
             Serial.write(c);
             response += c;
 
-            if (
-                response.indexOf("\r\nOK\r\n") >= 0)
+            if (response.indexOf("\r\nOK\r\n") >= 0)
             {
                 dataOK = true;
                 break;
             }
 
-            if (
-                response.indexOf("ERROR") >= 0)
-            {
+            if (response.indexOf("ERROR") >= 0)
                 break;
-            }
+
+            // Prevent a noisy modem response from growing the
+            // Arduino String indefinitely.
+            if (response.length() > 256)
+                response.remove(0, 128);
         }
 
-        if (
-            dataOK ||
-            response.indexOf("ERROR") >= 0)
-        {
+        if (dataOK || response.indexOf("ERROR") >= 0)
             break;
-        }
 
-        delay(10);
+        delay(2);
     }
 
     if (!dataOK)
     {
-        result.reason =
-            "CAMERA_DATA_SEND_FAILED";
-
-        sendATCommand(
-            "AT+HTTPTERM",
-            "",
-            3000);
-
+        result.reason = "CAMERA_DATA_SEND_FAILED";
+        closeCameraHttpSession();
         return result;
     }
 
     // --------------------------------------------------------
-    // HTTP POST
+    // POST CURRENT JPEG
     // --------------------------------------------------------
 
     clearGSMBuffer();
 
     Serial.println();
-    Serial.println(
-        "[GSM TX] AT+HTTPACTION=1");
+    Serial.println("[GSM TX] AT+HTTPACTION=1");
+    gsmSerial.println("AT+HTTPACTION=1");
 
-    gsmSerial.println(
-        "AT+HTTPACTION=1");
+    // The old code allowed 120 seconds. For live camera that can
+    // freeze the whole loop for too long. 25 seconds still gives
+    // 4G/Azure enough recovery room; a failure closes the session
+    // and the next frame reconnects cleanly.
+    HTTPResult http = waitHTTPAction(25000);
 
-    HTTPResult http =
-        waitHTTPAction(
-            120000);
-
-    result.httpStatus =
-        http.status;
+    result.httpStatus = http.status;
 
     if (!http.actionReceived)
     {
@@ -2261,52 +2375,43 @@ CameraUploadResult postCameraImage(
                 ? http.error
                 : "HTTP_REQUEST_FAILED";
 
-        sendATCommand(
-            "AT+HTTPTERM",
-            "",
-            3000);
-
+        closeCameraHttpSession();
         return result;
     }
 
-    if (
-        http.status >= 700 &&
-        http.status <= 799)
+    if (http.status >= 700 && http.status <= 799)
     {
         result.reason =
             "MODEM_HTTP_ERROR_" +
             String(http.status);
 
-        sendATCommand(
-            "AT+HTTPTERM",
-            "",
-            3000);
-
+        closeCameraHttpSession();
         return result;
     }
 
     result.requestOK = true;
 
-    if (
-        http.status >= 200 &&
-        http.status < 300)
+    if (http.status >= 200 && http.status < 300)
     {
         result.uploaded = true;
         result.reason = "OK";
+
+        // IMPORTANT: do NOT HTTPTERM here.
+        // Keep the session for the next camera frame.
     }
     else
     {
         result.uploaded = false;
+        result.reason = "HTTP_" + String(http.status);
 
-        result.reason =
-            "HTTP_" +
-            String(http.status);
+        // Unknown server state: reconnect on next frame.
+        closeCameraHttpSession();
     }
 
-    sendATCommand(
-        "AT+HTTPTERM",
-        "",
-        3000);
+    Serial.print("[CAMERA FAST] Total upload time: ");
+    Serial.print(millis() - uploadStartedAt);
+    Serial.println(" ms");
 
     return result;
 }
+
